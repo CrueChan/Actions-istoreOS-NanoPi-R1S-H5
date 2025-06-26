@@ -71,7 +71,9 @@ jobs:
 
     - name: Load custom feeds
       run: |
-        [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
+        # Use 'cp' instead of 'mv' to ensure your feeds.conf.default overwrites the original.
+        # This checks if your custom feeds.conf.default exists, then copies it.
+        [ -e $FEEDS_CONF ] && cp $FEEDS_CONF openwrt/feeds.conf.default
         chmod +x $DIY_P1_SH
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P1_SH
@@ -146,12 +148,16 @@ jobs:
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
-        # 使用 iStoreOS 分支名作为 Release Tag 的一部分，更具描述性
-        RELEASE_TAG="iStoreOS-${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }}${{ env.DEVICE_NAME }}-${{ env.FILE_DATE }}"
+        # Use a more GitHub-friendly tag format: replace underscores with hyphens, remove excessive spaces.
+        # Format: iStoreOS-[branch_name]-[device_name]-[YYYYMMDDHHMM]
+        # Using sed to sanitize the branch and device names for the tag.
+        BRANCH_TAG=$(echo "${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }}" | sed 's/[^a-zA-Z0-9.-]/-/g' | sed 's/--/-/g' | sed 's/^-//;s/-$//')
+        DEVICE_TAG=$(echo "${{ env.DEVICE_NAME }}" | sed 's/^_//' | sed 's/[^a-zA-Z0-9.-]/-/g' | sed 's/--/-/g' | sed 's/^-//;s/-$//')
+        
+        RELEASE_TAG="iStoreOS-${BRANCH_TAG}-${DEVICE_TAG}-${{ env.FILE_DATE }}"
         echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+        
         touch release.txt
-        # 这里的 UPLOAD_GOFILE 变量你没有定义，所以这行不会执行，可以删除如果你不需要 GoFile
-        # [ ${UPLOAD_GOFILE} = true && ${{ steps.gofile.outputs.url }} ] && echo "🔗 [GoFile](${{ steps.gofile.outputs.url }})" >> release.txt
         echo "Build triggered by: ${{ github.event_name }}" >> release.txt
         echo "iStoreOS Branch: ${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }}" >> release.txt
         echo "Device: ${{ env.DEVICE_NAME }}" >> release.txt
