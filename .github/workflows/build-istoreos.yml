@@ -30,14 +30,13 @@ permissions:
   variables: write # 允许设置和读取仓库变量
 
 env:
-  # REPO_URL 和 REPO_BRANCH 不再需要在这里全局定义，因为它们在步骤中动态使用
-  FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: .config
-  DIY_P1_SH: diy-part1.sh
-  DIY_P2_SH: diy-part2.sh
-  UPLOAD_BIN_DIR: false # 是否上传整个 bin 目录（包含软件包等，通常不需要）
-  UPLOAD_FIRMWARE: true # 是否上传固件文件到 Artifacts
-  UPLOAD_RELEASE: true  # 是否上传固件文件到 GitHub Release
+  # FEEDS_CONF: feeds.conf.default # 也可以将这些 Env 变量在第一次使用时定义，或保持不变
+  # CONFIG_FILE: .config
+  # DIY_P1_SH: diy-part1.sh
+  # DIY_P2_SH: diy-part2.sh
+  UPLOAD_BIN_DIR: false
+  UPLOAD_FIRMWARE: true
+  UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
 
 jobs:

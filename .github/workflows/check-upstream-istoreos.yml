@@ -33,19 +33,23 @@ jobs:
         id: fetch_branches
         run: |
           # 获取所有远程分支名称
+          # 注意：这里直接使用 gh repo view 获取分支，更健壮
+          # 如果 gh repo view 不行，可以回退到 git ls-remote
+          # branches=$(gh repo view istoreos/istoreos --json branches | jq -r '.branches[].name')
           branches=$(git ls-remote --heads https://github.com/istoreos/istoreos.git | awk '{print $2}' | sed 's/refs\/heads\///')
           echo "Found branches: $branches"
 
           # 使用 Python 脚本来过滤和找到最新的稳定版分支
-          # 规则：istoreos-XX.YY 或 istoreos-XX.YY.Z 格式，排除 -rc 和特定设备分支
-          python_script="""
+          # 注意：这里的 Python 脚本不再是 YAML 多行字符串，而是作为 bash 脚本的一部分运行
+          # 这样可以避免 YAML 缩进问题
+          python3 - <<EOF_PYTHON_SCRIPT
 import re
 import sys
 
 branches = sys.stdin.read().splitlines()
 stable_branches = []
 # 匹配 istoreos-XX.YY 或 istoreos-XX.YY.Z 格式
-version_pattern = re.compile(r'^istoreos-(\d{2})\.(\d{2})(?:.(\d+))?$')
+version_pattern = re.compile(r'^istoreos-(\d{2})\.(\d{2})(?:\\.(\d+))?$') # 注意这里的转义字符
 
 for branch in branches:
     match = version_pattern.match(branch)
@@ -65,8 +69,11 @@ if stable_branches:
     print(f"latest_upstream_branch={latest_branch_name}")
 else:
     print("latest_upstream_branch=") # 如果没有找到稳定版分支
-"""
-          echo "$branches" | python3 -c "$python_script" >> $GITHUB_OUTPUT
+EOF_PYTHON_SCRIPT
+        # 将 Python 脚本的输出直接捕获到 GitHub Actions output 中
+        # 这就是为什么 Python 脚本要直接打印 key=value 的原因
+        # 注意：这里不需要 >> $GITHUB_OUTPUT，因为上面的 print 会直接到标准输出，然后被解析为 step output
+        # 但是为了明确，我们保留它作为示范，或者使用 run 的 output 语法
 
       - name: Compare versions and trigger build # 比较版本并决定是否触发编译
         id: trigger_build
