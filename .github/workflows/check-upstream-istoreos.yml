@@ -32,33 +32,33 @@ jobs:
           # Use Python script to filter and find the latest stable branch
           # The output of this script will be captured by the step and then used as step.outputs.latest_upstream_branch
           python_output=$(python3 - <<EOF_PYTHON_SCRIPT
-import re
-import sys
+          import re
+          import sys
 
-branches = sys.stdin.read().splitlines()
-stable_branches = []
-# Match istoreos-XX.YY or istoreos-XX.YY.Z format
-version_pattern = re.compile(r'^istoreos-(\d{2})\.(\d{2})(?:\\.(\d+))?$')
+          branches = sys.stdin.read().splitlines()
+          stable_branches = []
+          # Match istoreos-XX.YY or istoreos-XX.YY.Z format
+          version_pattern = re.compile(r'^istoreos-(\d{2})\.(\d{2})(?:\\.(\d+))?$')
 
-for branch in branches:
-    match = version_pattern.match(branch)
-    if match:
-        major = int(match.group(1))
-        minor = int(match.group(2))
-        patch = int(match.group(3)) if match.group(3) else 0
-        stable_branches.append((major, minor, patch, branch))
+          for branch in branches:
+              match = version_pattern.match(branch)
+              if match:
+                  major = int(match.group(1))
+                  minor = int(match.group(2))
+                  patch = int(match.group(3)) if match.group(3) else 0
+                  stable_branches.append((major, minor, patch, branch))
 
-stable_branches.sort()
+          stable_branches.sort()
 
-if stable_branches:
-    latest_branch_tuple = stable_branches[-1]
-    latest_branch_name = latest_branch_tuple[3]
-    print(latest_branch_name) # Print only the branch name
-else:
-    print("") # Print empty if no stable branches found
-EOF_PYTHON_SCRIPT
-)
-          echo "latest_upstream_branch=$python_output" >> $GITHUB_OUTPUT # Set the step output here
+          if stable_branches:
+              latest_branch_tuple = stable_branches[-1]
+              latest_branch_name = latest_branch_tuple[3]
+              print(latest_branch_name) # Print only the branch name
+          else:
+              print("") # Print empty if no stable branches found
+          EOF_PYTHON_SCRIPT
+          )
+          echo "latest_upstream_branch=$python_output" >> $GITHUB_OUTPUT
 
       - name: Compare versions and trigger build
         id: trigger_build
@@ -70,29 +70,29 @@ EOF_PYTHON_SCRIPT
           echo "Latest upstream stable branch: $LATEST_UPSTREAM_BRANCH"
           echo "Currently built branch: $CURRENT_BUILT_BRANCH"
 
-          python3 - <<EOF_PYTHON_COMPARE
-import re
-import sys
-
-def parse_version(branch_name):
-    match = re.match(r'^istoreos-(\d{2})\.(\d{2})(?:\\.(\d+))?$', branch_name)
-    if match:
-        major = int(match.group(1))
-        minor = int(match.group(2))
-        patch = int(match.group(3)) if match.group(3) else 0
-        return (major, minor, patch)
-    return (0, 0, 0)
-
-latest_version = parse_version(sys.argv[1])
-current_version = parse_version(sys.argv[2])
-
-if latest_version > current_version:
-    print("NEW_VERSION_FOUND=true")
-else:
-    print("NEW_VERSION_FOUND=false")
-EOF_PYTHON_COMPARE
           # Capture the output of the Python comparison script
-          NEW_VERSION_STATUS=$(python3 -c "import re; import sys; def parse_version(branch_name): match = re.match(r'^istoreos-(\d{2})\.(\d{2})(?:\\.(\d+))?$', branch_name); return (int(match.group(1)), int(match.group(2)), int(match.group(3)) if match.group(3) else 0) if match else (0, 0, 0); latest_version = parse_version(sys.argv[1]); current_version = parse_version(sys.argv[2]); print('NEW_VERSION_FOUND=true' if latest_version > current_version else 'NEW_VERSION_FOUND=false')" "$LATEST_UPSTREAM_BRANCH" "$CURRENT_BUILT_BRANCH")
+          NEW_VERSION_STATUS=$(python3 -c "
+          import re
+          import sys
+
+          def parse_version(branch_name):
+              match = re.match(r'^istoreos-(\d{2})\.(\d{2})(?:\\.(\d+))?$', branch_name)
+              if match:
+                  major = int(match.group(1))
+                  minor = int(match.group(2))
+                  patch = int(match.group(3)) if match.group(3) else 0
+                  return (major, minor, patch)
+              return (0, 0, 0)
+
+          latest_version = parse_version(sys.argv[1])
+          current_version = parse_version(sys.argv[2])
+
+          if latest_version > current_version:
+              print('NEW_VERSION_FOUND=true')
+          else:
+              print('NEW_VERSION_FOUND=false')
+          " "$LATEST_UPSTREAM_BRANCH" "$CURRENT_BUILT_BRANCH")
+          
           echo "$NEW_VERSION_STATUS" >> $GITHUB_OUTPUT
 
       - name: Dispatch build workflow if new version found

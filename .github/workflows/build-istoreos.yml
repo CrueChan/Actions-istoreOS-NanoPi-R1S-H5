@@ -23,21 +23,21 @@ on:
         required: false
         default: 'istoreos-24.10.0' # 默认值，如果你手动触发时没有指定分支，将使用此分支
 
-# 为整个工作流设置权限，确保 GITHUB_TOKEN 有足够的权限来设置和读取仓库变量，以及触发其他工作流
-permissions:
-  contents: write # 允许写入内容 (用于 gh variable set)
-  actions: write # 允许触发其他工作流
-  variables: write # 允许设置和读取仓库变量
+  # 为整个工作流设置权限，确保 GITHUB_TOKEN 有足够的权限来设置和读取仓库变量，以及触发其他工作流
+  permissions:
+    contents: write # 允许写入内容 (用于 gh variable set)
+    actions: write # 允许触发其他工作流
+    variables: write # 允许设置和读取仓库变量
 
-env:
-  # FEEDS_CONF: feeds.conf.default # 也可以将这些 Env 变量在第一次使用时定义，或保持不变
-  # CONFIG_FILE: .config
-  # DIY_P1_SH: diy-part1.sh
-  # DIY_P2_SH: diy-part2.sh
-  UPLOAD_BIN_DIR: false
-  UPLOAD_FIRMWARE: true
-  UPLOAD_RELEASE: true
-  TZ: Asia/Shanghai
+  env:
+    # FEEDS_CONF: feeds.conf.default # 也可以将这些 Env 变量在第一次使用时定义，或保持不变
+    # CONFIG_FILE: .config
+    # DIY_P1_SH: diy-part1.sh
+    # DIY_P2_SH: diy-part2.sh
+    UPLOAD_BIN_DIR: false
+    UPLOAD_FIRMWARE: true
+    UPLOAD_RELEASE: true
+    TZ: Asia/Shanghai
 
 jobs:
   build:
