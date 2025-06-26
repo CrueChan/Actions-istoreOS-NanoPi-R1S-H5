@@ -23,11 +23,10 @@ on:
         required: false
         default: 'istoreos-24.10.0' # 默认值，如果你手动触发时没有指定分支，将使用此分支
 
-# 为整个工作流设置权限，确保 GITHUB_TOKEN 有足够的权限来设置和读取仓库变量，以及触发其他工作流
+# 为整个工作流设置权限，确保 GITHUB_TOKEN 有足够的权限
 permissions:
-  contents: write # 允许写入内容 (用于 gh variable set)
+  contents: write # 允许写入内容和创建release
   actions: write # 允许触发其他工作流
-  variables: write # 允许设置和读取仓库变量
 
 env:
   # FEEDS_CONF: feeds.conf.default # 也可以将这些 Env 变量在第一次使用时定义，或保持不变
