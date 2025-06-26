@@ -13,28 +13,40 @@
 name: iStoreOS Builder
 
 on:
-  repository_dispatch:
+  push:
+    branches:
+      - main # 当你的 main 分支有新的 push 时触发
   workflow_dispatch:
+    inputs:
+      istoreos_branch:
+        description: '要编译的 iStoreOS 分支 (例如：istoreos-24.10.0)'
+        required: false
+        default: 'istoreos-24.10.0' # 默认值，如果你手动触发时没有指定分支，将使用此分支
+
+# 为整个工作流设置权限，确保 GITHUB_TOKEN 有足够的权限来设置和读取仓库变量，以及触发其他工作流
+permissions:
+  contents: write # 允许写入内容 (用于 gh variable set)
+  actions: write # 允许触发其他工作流
+  variables: write # 允许设置和读取仓库变量
 
 env:
-  REPO_URL: https://github.com/istoreos/istoreos
-  REPO_BRANCH: istoreos-24.10.0
+  # REPO_URL 和 REPO_BRANCH 不再需要在这里全局定义，因为它们在步骤中动态使用
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
   DIY_P1_SH: diy-part1.sh
   DIY_P2_SH: diy-part2.sh
-  UPLOAD_BIN_DIR: false
-  UPLOAD_FIRMWARE: true
-  UPLOAD_RELEASE: true
+  UPLOAD_BIN_DIR: false # 是否上传整个 bin 目录（包含软件包等，通常不需要）
+  UPLOAD_FIRMWARE: true # 是否上传固件文件到 Artifacts
+  UPLOAD_RELEASE: true  # 是否上传固件文件到 GitHub Release
   TZ: Asia/Shanghai
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.04 # 保持你之前修改的稳定版本
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@main
+    - name: Checkout # 检出你自己的仓库代码
+      uses: actions/checkout@v4
 
     - name: Initialization environment
       env:
@@ -50,11 +62,13 @@ jobs:
         sudo mkdir -p /workdir
         sudo chown $USER:$GROUPS /workdir
 
-    - name: Clone source code
+    - name: Clone iStoreOS source # 克隆 iStoreOS 源码到 /workdir/openwrt
       working-directory: /workdir
       run: |
         df -hT $PWD
-        git clone $REPO_URL -b $REPO_BRANCH openwrt
+        # 使用 workflow_dispatch 输入的分支，如果没有输入则使用默认值
+        git clone https://github.com/istoreos/istoreos -b ${{ github.event.inputs.istoreos_branch }} openwrt
+        # 创建符号链接，让后续脚本能找到源码
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
     - name: Load custom feeds
@@ -94,6 +108,7 @@ jobs:
         echo -e "$(nproc) thread compile"
         make -j$(nproc) || make -j1 || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
+        # 提取设备名称，用于命名 Artifact 和 Release
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
@@ -102,56 +117,69 @@ jobs:
       if: (!cancelled())
       run: df -hT
 
-    - name: Upload bin directory
-      uses: actions/upload-artifact@main
-      if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
-      with:
-        name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-        path: openwrt/bin
-
-    - name: Organize files
+    - name: Organize firmware files # 组织固件文件到易于上传的目录
       id: organize
-      if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       run: |
-        cd openwrt/bin/targets/*/*
-        rm -rf packages
-        echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+        # 创建一个专门的固件输出目录
+        mkdir -p ${{ github.workspace }}/firmware_output
+        # 查找所有 img.gz, bin, manifest, buildinfo 文件并移动
+        find openwrt/bin/targets/ -type f \( -name "*.img.gz" -o -name "*.bin" -o -name "*.manifest" -o -name "*.buildinfo" \) -exec mv {} ${{ github.workspace }}/firmware_output/ \;
+        echo "FIRMWARE_PATH=${{ github.workspace }}/firmware_output" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
 
-    - name: Upload firmware directory
-      uses: actions/upload-artifact@main
-      if: steps.organize.outputs.status == 'success' && !cancelled()
+    - name: Upload firmware to Artifacts # 上传固件到 Artifacts (推荐方式)
+      uses: actions/upload-artifact@v4
+      if: steps.organize.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       with:
-        name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-        path: ${{ env.FIRMWARE }}
+        name: iStoreOS-Firmware-${{ github.event.inputs.istoreos_branch }}${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        path: ${{ env.FIRMWARE_PATH }}/*
+
+    - name: Update LAST_BUILT_ISTOREOS_BRANCH variable # 更新上次编译的分支变量
+      if: success() # 仅在前面的步骤都成功时执行
+      run: |
+        # 使用 GitHub CLI 更新仓库变量
+        # 这需要 GITHUB_TOKEN 具有 variables:write 权限
+        gh variable set LAST_BUILT_ISTOREOS_BRANCH "${{ github.event.inputs.istoreos_branch }}" --repo ${{ github.repository }}
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub 自动提供的 token
 
     - name: Generate release tag
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
-        echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
+        # 使用 iStoreOS 分支名作为 Release Tag 的一部分，更具描述性
+        RELEASE_TAG="iStoreOS-${{ github.event.inputs.istoreos_branch }}${{ env.DEVICE_NAME }}-${{ env.FILE_DATE }}"
+        echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
         touch release.txt
-        [ ${UPLOAD_GOFILE} = true && ${{ steps.gofile.outputs.url }} ] && echo "🔗 [GoFile](${{ steps.gofile.outputs.url }})" >> release.txt
+        # 这里的 UPLOAD_GOFILE 变量你没有定义，所以这行不会执行，可以删除如果你不需要 GoFile
+        # [ ${UPLOAD_GOFILE} = true && ${{ steps.gofile.outputs.url }} ] && echo "🔗 [GoFile](${{ steps.gofile.outputs.url }})" >> release.txt
+        echo "Build triggered by: ${{ github.event_name }}" >> release.txt
+        echo "iStoreOS Branch: ${{ github.event.inputs.istoreos_branch }}" >> release.txt
+        echo "Device: ${{ env.DEVICE_NAME }}" >> release.txt
         echo "status=success" >> $GITHUB_OUTPUT
 
     - name: Upload firmware to release
-      uses: softprops/action-gh-release@master
-      if: steps.tag.outputs.status == 'success' && !cancelled()
+      uses: softprops/action-gh-release@v1 # 更新到最新稳定版本
+      if: steps.tag.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
-        files: ${{ env.FIRMWARE }}/*
+        # 上传 Organize firmware files 步骤中整理出来的文件
+        files: ${{ env.FIRMWARE_PATH }}/*
 
     - name: Delete workflow runs
-      uses: Mattraks/delete-workflow-runs@main
+      uses: Mattraks/delete-workflow-runs@v2 # 更新到最新稳定版本
       with:
         retain_days: 0
         keep_minimum_runs: 2
+        # 删除所有状态的 runs，包括成功、失败等，以便节省空间
+        delete_workflow_pattern: "iStoreOS Builder" # 指定只删除此工作流的运行记录
 
     - name: Remove old Releases
-      uses: dev-drprasad/delete-older-releases@master
+      uses: dev-drprasad/delete-older-releases@v0.0.0 # 更新到最新版本 (注意：这个 action 可能更新不频繁，v0.0.0 是最新的)
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       with:
         keep_latest: 3

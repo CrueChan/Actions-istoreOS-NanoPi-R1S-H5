@@ -1,0 +1,123 @@
+name: Check Upstream iStoreOS Branches
+
+on:
+  schedule:
+    # 每天 UTC 时间 00:00 运行一次
+    # 你可以根据需要调整 cron 表达式，例如：
+    # '0 0 * * *' 每天午夜
+    # '0 */6 * * *' 每 6 小时
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 允许手动触发，方便测试
+
+# 为整个工作流设置权限
+permissions:
+  contents: read # 允许读取仓库内容 (用于 git ls-remote)
+  actions: write # 允许触发其他工作流
+  variables: read # 允许读取仓库变量
+
+jobs:
+  check:
+    runs-on: ubuntu-22.04 # 保持与编译工作流相同的环境
+
+    steps:
+      - name: Fetch current LAST_BUILT_ISTOREOS_BRANCH # 获取上次编译的分支
+        id: get_current_branch
+        run: |
+          # 尝试从仓库变量获取上次编译的分支，如果变量不存在，则默认使用 istoreos-24.10.0
+          LAST_BUILT_BRANCH=$(gh variable get LAST_BUILT_ISTOREOS_BRANCH --repo ${{ github.repository }} || echo "istoreos-24.10.0")
+          echo "current_branch=$LAST_BUILT_BRANCH" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub 自动提供的 token
+
+      - name: Fetch upstream iStoreOS branches # 获取上游 iStoreOS 仓库的所有分支
+        id: fetch_branches
+        run: |
+          # 获取所有远程分支名称
+          branches=$(git ls-remote --heads https://github.com/istoreos/istoreos.git | awk '{print $2}' | sed 's/refs\/heads\///')
+          echo "Found branches: $branches"
+
+          # 使用 Python 脚本来过滤和找到最新的稳定版分支
+          # 规则：istoreos-XX.YY 或 istoreos-XX.YY.Z 格式，排除 -rc 和特定设备分支
+          python_script="""
+import re
+import sys
+
+branches = sys.stdin.read().splitlines()
+stable_branches = []
+# 匹配 istoreos-XX.YY 或 istoreos-XX.YY.Z 格式
+version_pattern = re.compile(r'^istoreos-(\d{2})\.(\d{2})(?:.(\d+))?$')
+
+for branch in branches:
+    match = version_pattern.match(branch)
+    if match:
+        # 提取版本号部分
+        major = int(match.group(1))
+        minor = int(match.group(2))
+        patch = int(match.group(3)) if match.group(3) else 0
+        stable_branches.append((major, minor, patch, branch))
+
+# 根据版本号进行排序，找到最新的分支
+stable_branches.sort()
+
+if stable_branches:
+    latest_branch_tuple = stable_branches[-1]
+    latest_branch_name = latest_branch_tuple[3]
+    print(f"latest_upstream_branch={latest_branch_name}")
+else:
+    print("latest_upstream_branch=") # 如果没有找到稳定版分支
+"""
+          echo "$branches" | python3 -c "$python_script" >> $GITHUB_OUTPUT
+
+      - name: Compare versions and trigger build # 比较版本并决定是否触发编译
+        id: trigger_build
+        # 仅当成功获取到最新的上游分支时才执行
+        if: steps.fetch_branches.outputs.latest_upstream_branch != ''
+        run: |
+          LATEST_UPSTREAM_BRANCH="${{ steps.fetch_branches.outputs.latest_upstream_branch }}"
+          CURRENT_BUILT_BRANCH="${{ steps.get_current_branch.outputs.current_branch }}"
+
+          echo "Latest upstream stable branch: $LATEST_UPSTREAM_BRANCH"
+          echo "Currently built branch: $CURRENT_BUILT_BRANCH"
+
+          # 使用 Python 脚本进行版本比较
+          python_compare_script="""
+import re
+import sys
+
+def parse_version(branch_name):
+    # 解析分支名称为可比较的版本元组 (major, minor, patch)
+    match = re.match(r'^istoreos-(\d{2})\.(\d{2})(?:.(\d+))?$', branch_name)
+    if match:
+        major = int(match.group(1))
+        minor = int(match.group(2))
+        patch = int(match.group(3)) if match.group(3) else 0
+        return (major, minor, patch)
+    return (0, 0, 0) # 无效格式的默认值
+
+latest_version = parse_version(sys.argv[1])
+current_version = parse_version(sys.argv[2])
+
+# 如果上游最新版本严格大于当前已编译版本
+if latest_version > current_version:
+    print("NEW_VERSION_FOUND=true")
+else:
+    print("NEW_VERSION_FOUND=false")
+"""
+          NEW_VERSION_STATUS=$(python3 -c "$python_compare_script" "$LATEST_UPSTREAM_BRANCH" "$CURRENT_BUILT_BRANCH")
+          echo "$NEW_VERSION_STATUS" >> $GITHUB_OUTPUT
+
+      - name: Dispatch build workflow if new version found # 如果发现新版本，则触发编译工作流
+        # 仅当 NEW_VERSION_FOUND 为 'true' 时执行
+        if: steps.trigger_build.outputs.NEW_VERSION_FOUND == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner, # 你的 GitHub 用户名
+              repo: context.repo.repo,   # 你的仓库名
+              workflow_id: 'build-istoreos.yml', # 你的编译工作流文件名
+              ref: context.ref, # 使用当前工作流运行的分支 (例如 main)
+              inputs: {
+                istoreos_branch: '${{ steps.fetch_branches.outputs.latest_upstream_branch }}' # 将最新分支作为输入传递
+              }
+            });
