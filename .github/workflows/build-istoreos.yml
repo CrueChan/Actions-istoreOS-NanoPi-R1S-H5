@@ -23,21 +23,21 @@ on:
         required: false
         default: 'istoreos-24.10.0' # 默认值，如果你手动触发时没有指定分支，将使用此分支
 
-  # 为整个工作流设置权限，确保 GITHUB_TOKEN 有足够的权限来设置和读取仓库变量，以及触发其他工作流
-  permissions:
-    contents: write # 允许写入内容 (用于 gh variable set)
-    actions: write # 允许触发其他工作流
-    variables: write # 允许设置和读取仓库变量
+# 为整个工作流设置权限，确保 GITHUB_TOKEN 有足够的权限来设置和读取仓库变量，以及触发其他工作流
+permissions:
+  contents: write # 允许写入内容 (用于 gh variable set)
+  actions: write # 允许触发其他工作流
+  variables: write # 允许设置和读取仓库变量
 
-  env:
-    # FEEDS_CONF: feeds.conf.default # 也可以将这些 Env 变量在第一次使用时定义，或保持不变
-    # CONFIG_FILE: .config
-    # DIY_P1_SH: diy-part1.sh
-    # DIY_P2_SH: diy-part2.sh
-    UPLOAD_BIN_DIR: false
-    UPLOAD_FIRMWARE: true
-    UPLOAD_RELEASE: true
-    TZ: Asia/Shanghai
+env:
+  # FEEDS_CONF: feeds.conf.default # 也可以将这些 Env 变量在第一次使用时定义，或保持不变
+  # CONFIG_FILE: .config
+  # DIY_P1_SH: diy-part1.sh
+  # DIY_P2_SH: diy-part2.sh
+  UPLOAD_BIN_DIR: false
+  UPLOAD_FIRMWARE: true
+  UPLOAD_RELEASE: true
+  TZ: Asia/Shanghai
 
 jobs:
   build:
@@ -66,7 +66,7 @@ jobs:
       run: |
         df -hT $PWD
         # 使用 workflow_dispatch 输入的分支，如果没有输入则使用默认值
-        git clone https://github.com/istoreos/istoreos -b ${{ github.event.inputs.istoreos_branch }} openwrt
+        git clone https://github.com/istoreos/istoreos -b ${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }} openwrt
         # 创建符号链接，让后续脚本能找到源码
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
@@ -131,7 +131,7 @@ jobs:
       uses: actions/upload-artifact@v4
       if: steps.organize.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       with:
-        name: iStoreOS-Firmware-${{ github.event.inputs.istoreos_branch }}${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        name: iStoreOS-Firmware-${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }}${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE_PATH }}/*
 
     - name: Update LAST_BUILT_ISTOREOS_BRANCH variable # 更新上次编译的分支变量
@@ -139,7 +139,7 @@ jobs:
       run: |
         # 使用 GitHub CLI 更新仓库变量
         # 这需要 GITHUB_TOKEN 具有 variables:write 权限
-        gh variable set LAST_BUILT_ISTOREOS_BRANCH "${{ github.event.inputs.istoreos_branch }}" --repo ${{ github.repository }}
+        gh variable set LAST_BUILT_ISTOREOS_BRANCH "${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }}" --repo ${{ github.repository }}
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub 自动提供的 token
 
@@ -148,13 +148,13 @@ jobs:
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
         # 使用 iStoreOS 分支名作为 Release Tag 的一部分，更具描述性
-        RELEASE_TAG="iStoreOS-${{ github.event.inputs.istoreos_branch }}${{ env.DEVICE_NAME }}-${{ env.FILE_DATE }}"
+        RELEASE_TAG="iStoreOS-${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }}${{ env.DEVICE_NAME }}-${{ env.FILE_DATE }}"
         echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
         touch release.txt
         # 这里的 UPLOAD_GOFILE 变量你没有定义，所以这行不会执行，可以删除如果你不需要 GoFile
         # [ ${UPLOAD_GOFILE} = true && ${{ steps.gofile.outputs.url }} ] && echo "🔗 [GoFile](${{ steps.gofile.outputs.url }})" >> release.txt
         echo "Build triggered by: ${{ github.event_name }}" >> release.txt
-        echo "iStoreOS Branch: ${{ github.event.inputs.istoreos_branch }}" >> release.txt
+        echo "iStoreOS Branch: ${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }}" >> release.txt
         echo "Device: ${{ env.DEVICE_NAME }}" >> release.txt
         echo "status=success" >> $GITHUB_OUTPUT
 
@@ -178,7 +178,7 @@ jobs:
         delete_workflow_pattern: "iStoreOS Builder" # 指定只删除此工作流的运行记录
 
     - name: Remove old Releases
-      uses: dev-drprasad/delete-older-releases@v0.0.0 # 更新到最新版本 (注意：这个 action 可能更新不频繁，v0.0.0 是最新的)
+      uses: dev-drprasad/delete-older-releases@v0.3.3 # 使用更稳定的版本
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       with:
         keep_latest: 3
