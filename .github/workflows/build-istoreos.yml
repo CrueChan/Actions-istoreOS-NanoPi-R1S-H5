@@ -13,9 +13,6 @@
 name: iStoreOS Builder
 
 on:
-  push:
-    branches:
-      - main # 当你的 main 分支有新的 push 时触发
   workflow_dispatch:
     inputs:
       istoreos_branch:
@@ -37,6 +34,7 @@ env:
   UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
+  CLEANUP_OLD_RELEASES: false  # 设为 false 可以禁用清理
   TZ: Asia/Shanghai
 
 jobs:
@@ -213,7 +211,7 @@ jobs:
 
     - name: Remove old Releases
       uses: dev-drprasad/delete-older-releases@v0.3.3 # 使用更稳定的版本
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      if: env.UPLOAD_RELEASE == 'true' && env.CLEANUP_OLD_RELEASES == 'true' && !cancelled()
       with:
         keep_latest: 3
         delete_tags: true
