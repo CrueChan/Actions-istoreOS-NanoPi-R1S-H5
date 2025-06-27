@@ -29,10 +29,10 @@ permissions:
   actions: write # 允许触发其他工作流
 
 env:
-  # FEEDS_CONF: feeds.conf.default # 也可以将这些 Env 变量在第一次使用时定义，或保持不变
-  # CONFIG_FILE: .config
-  # DIY_P1_SH: diy-part1.sh
-  # DIY_P2_SH: diy-part2.sh
+  FEEDS_CONF: feeds.conf.default
+  CONFIG_FILE: .config
+  DIY_P1_SH: diy-part1.sh
+  DIY_P2_SH: diy-part2.sh
   UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
@@ -71,12 +71,10 @@ jobs:
 
     - name: Load custom feeds
       run: |
-        # Use 'cp' instead of 'mv' to ensure your feeds.conf.default overwrites the original.
-        # This checks if your custom feeds.conf.default exists, then copies it.
         [ -e $FEEDS_CONF ] && cp $FEEDS_CONF openwrt/feeds.conf.default
-        chmod +x $DIY_P1_SH
+        [ -e $DIY_P1_SH ] && chmod +x $DIY_P1_SH
         cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P1_SH
+        [ -e $GITHUB_WORKSPACE/$DIY_P1_SH ] && $GITHUB_WORKSPACE/$DIY_P1_SH
 
     - name: Update feeds
       run: cd openwrt && ./scripts/feeds update -a
@@ -86,11 +84,11 @@ jobs:
 
     - name: Load custom configuration
       run: |
-        [ -e files ] && mv files openwrt/files
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-        chmod +x $DIY_P2_SH
+        [ -e files ] && cp -r files openwrt/files
+        [ -e $CONFIG_FILE ] && cp $CONFIG_FILE openwrt/.config
+        [ -e $DIY_P2_SH ] && chmod +x $DIY_P2_SH
         cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P2_SH
+        [ -e $GITHUB_WORKSPACE/$DIY_P2_SH ] && $GITHUB_WORKSPACE/$DIY_P2_SH
 
     - name: Download package
       id: package
@@ -109,8 +107,12 @@ jobs:
         make -j$(nproc) || make -j1 || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
         # 提取设备名称，用于命名 Artifact 和 Release
-        grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
-        [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
+        if grep -q '^CONFIG_TARGET.*DEVICE.*=y' .config; then
+          DEVICE_NAME=$(grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' | head -1)
+          echo "DEVICE_NAME=_${DEVICE_NAME}" >> $GITHUB_ENV
+        else
+          echo "DEVICE_NAME=" >> $GITHUB_ENV
+        fi
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
 
     - name: Check space usage
@@ -148,31 +150,32 @@ jobs:
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
-        # Use a more GitHub-friendly tag format: replace underscores with hyphens, remove excessive spaces.
-        # Format: iStoreOS-[branch_name]-[device_name]-[YYYYMMDDHHMM]
-        # Using sed to sanitize the branch and device names for the tag.
-        BRANCH_TAG=$(echo "${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }}" | sed 's/[^a-zA-Z0-9.-]/-/g' | sed 's/--/-/g' | sed 's/^-//;s/-$//')
-        DEVICE_TAG=$(echo "${{ env.DEVICE_NAME }}" | sed 's/^_//' | sed 's/[^a-zA-Z0-9.-]/-/g' | sed 's/--/-/g' | sed 's/^-//;s/-$//')
+        # 使用 iStoreOS 分支名作为 Release Tag 的一部分，更具描述性
+        BRANCH_NAME="${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }}"
+        DEVICE_SUFFIX="${{ env.DEVICE_NAME }}"
+        DATE_SUFFIX="${{ env.FILE_DATE }}"
         
-        RELEASE_TAG="iStoreOS-${BRANCH_TAG}-${DEVICE_TAG}-${{ env.FILE_DATE }}"
+        # 确保 tag 名称符合 Git 标签规范
+        RELEASE_TAG="iStoreOS-${BRANCH_NAME}${DEVICE_SUFFIX}${DATE_SUFFIX}"
+        
         echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
-        
         touch release.txt
         echo "Build triggered by: ${{ github.event_name }}" >> release.txt
         echo "iStoreOS Branch: ${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }}" >> release.txt
         echo "Device: ${{ env.DEVICE_NAME }}" >> release.txt
+        echo "Build Date: $(date)" >> release.txt
         echo "status=success" >> $GITHUB_OUTPUT
 
     - name: Upload firmware to release
-      uses: softprops/action-gh-release@v1 # 更新到最新稳定版本
+      uses: softprops/action-gh-release@v1
       if: steps.tag.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
-        # 上传 Organize firmware files 步骤中整理出来的文件
         files: ${{ env.FIRMWARE_PATH }}/*
+        fail_on_unmatched_files: false
 
     - name: Delete workflow runs
       uses: Mattraks/delete-workflow-runs@v2 # 更新到最新稳定版本
@@ -190,3 +193,5 @@ jobs:
         delete_tags: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        
