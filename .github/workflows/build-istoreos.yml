@@ -27,6 +27,7 @@ on:
 permissions:
   contents: write # 允许写入内容和创建release
   actions: write # 允许触发其他工作流
+  repository-projects: write # 允许管理仓库项目和变量
 
 env:
   FEEDS_CONF: feeds.conf.default
