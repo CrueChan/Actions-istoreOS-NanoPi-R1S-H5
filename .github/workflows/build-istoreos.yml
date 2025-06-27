@@ -141,8 +141,9 @@ jobs:
       if: success() # 仅在前面的步骤都成功时执行
       run: |
         # 使用 GitHub CLI 更新仓库变量
-        # 这需要 GITHUB_TOKEN 具有 variables:write 权限
-        gh variable set LAST_BUILT_ISTOREOS_BRANCH "${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }}" --repo ${{ github.repository }}
+        # 这需要 GITHUB_TOKEN 具有适当的权限
+        BRANCH_NAME="${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }}"
+        gh variable set LAST_BUILT_ISTOREOS_BRANCH --body "$BRANCH_NAME" --repo "${{ github.repository }}"
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub 自动提供的 token
 
@@ -193,5 +194,3 @@ jobs:
         delete_tags: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-        
