@@ -1,7 +1,7 @@
 #
-# 基于 https://github.com/P3TERX/Actions-OpenWrt 修改
-# 原项目 Copyright (c) 2019-2024 P3TERX <https://p3terx.com>
-# 修改版本由 CrueChan 维护
+# Modified based on https://github.com/P3TERX/Actions-OpenWrt
+# Original project Copyright (c) 2019-2024 P3TERX <https://p3terx.com>
+# Modified version maintained by CrueChan
 #
 # This is free software, licensed under the MIT License.
 # See /LICENSE for more information.
@@ -13,15 +13,15 @@ on:
   workflow_dispatch:
     inputs:
       istoreos_branch:
-        description: '要编译的 iStoreOS 分支 (例如：istoreos-24.10.0)'
+        description: 'iStoreOS branch to compile (for example: istoreos-24.10.0)'
         required: false
-        default: 'istoreos-24.10.0' # 默认值，如果你手动触发时没有指定分支，将使用此分支
+        default: 'istoreos-24.10.0' # The default value, if you do not specify a branch when manually triggering, this branch will be used
 
-# 为整个工作流设置权限，确保 GITHUB_TOKEN 有足够的权限
+# Set permissions for the entire workflow, making sure GITHUB_TOKEN has sufficient permissions
 permissions:
-  contents: write # 允许写入内容和创建release
-  actions: write # 允许触发其他工作流
-  repository-projects: write # 允许管理仓库项目和变量
+  contents: write # Allows writing content and creating releases
+  actions: write # Allows triggering of other workflows
+  repository-projects: write # Allows management of repository items and variables
 
 env:
   FEEDS_CONF: feeds.conf.default
@@ -31,15 +31,15 @@ env:
   UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
-  CLEANUP_OLD_RELEASES: true  # 设为 false 可以禁用清理
+  CLEANUP_OLD_RELEASES: true  # Set to false to disable cleanup
   TZ: Asia/Shanghai
 
 jobs:
   build:
-    runs-on: ubuntu-22.04 # 保持你之前修改的稳定版本
+    runs-on: ubuntu-22.04 # Keep the stable version of the previous modification
 
     steps:
-    - name: Checkout # 检出你自己的仓库代码
+    - name: Checkout # Check out my own repository code
       uses: actions/checkout@v4
 
     - name: Initialization environment
@@ -56,13 +56,13 @@ jobs:
         sudo mkdir -p /workdir
         sudo chown $USER:$GROUPS /workdir
 
-    - name: Clone iStoreOS source # 克隆 iStoreOS 源码到 /workdir/openwrt
+    - name: Clone iStoreOS source # Clone the iStoreOS source code to /workdir/openwrt
       working-directory: /workdir
       run: |
         df -hT $PWD
-        # 使用 workflow_dispatch 输入的分支，如果没有输入则使用默认值
+        # Use the branch from workflow_dispatch input, or the default value if no input is given
         git clone https://github.com/istoreos/istoreos -b ${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }} openwrt
-        # 创建符号链接，让后续脚本能找到源码
+        # Create a symbolic link so that subsequent scripts can find the source code
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
     - name: Load custom feeds
@@ -102,7 +102,7 @@ jobs:
         echo -e "$(nproc) thread compile"
         make -j$(nproc) || make -j1 || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
-        # 提取设备名称，用于命名 Artifact 和 Release
+        # Extract the device name for naming Artifact and Release
         if grep -q '^CONFIG_TARGET.*DEVICE.*=y' .config; then
           DEVICE_NAME=$(grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' | head -1)
           echo "DEVICE_NAME=_${DEVICE_NAME}" >> $GITHUB_ENV
@@ -115,36 +115,36 @@ jobs:
       if: (!cancelled())
       run: df -hT
 
-    - name: Organize firmware files # 组织固件文件到易于上传的目录
+    - name: Organize firmware files # Organize firmware files into directories for easy uploading
       id: organize
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       run: |
-        # 创建一个专门的固件输出目录
+        # Create a dedicated firmware output directory
         mkdir -p ${{ github.workspace }}/firmware_output
-        # 查找所有 img.gz, bin, manifest, buildinfo 文件并移动
+        # Find all img.gz, bin, manifest, buildinfo files and move them
         find openwrt/bin/targets/ -type f \( -name "*.img.gz" -o -name "*.bin" -o -name "*.manifest" -o -name "*.buildinfo" \) -exec mv {} ${{ github.workspace }}/firmware_output/ \;
         echo "FIRMWARE_PATH=${{ github.workspace }}/firmware_output" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
 
-    - name: Upload firmware to Artifacts # 上传固件到 Artifacts (推荐方式)
+    - name: Upload firmware to Artifacts # Upload the firmware to Artifacts (recommended method)
       uses: actions/upload-artifact@v4
       if: steps.organize.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       with:
         name: iStoreOS-Firmware-${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }}${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE_PATH }}/*
 
-    - name: Update LAST_BUILT_ISTOREOS_BRANCH variable # 更新上次编译的分支变量
-      if: success() # 仅在前面的步骤都成功时执行
+    - name: Update LAST_BUILT_ISTOREOS_BRANCH variable # Update the branch variable of the last compilation
+      if: success() # Execute only if all previous steps succeeded
       run: |
-        # 使用 GitHub API 更新仓库变量
+        # Updating repository variables using the GitHub API
         BRANCH_NAME="${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }}"
         
-        # 尝试使用 GitHub CLI
+        # Try using the GitHub CLI
         if gh variable set LAST_BUILT_ISTOREOS_BRANCH --body "$BRANCH_NAME" --repo "${{ github.repository }}"; then
           echo "Successfully updated variable using gh CLI"
         else
           echo "gh CLI failed, trying GitHub API directly"
-          # 使用 GitHub API 直接更新变量
+          # Update variables directly using the GitHub API
           curl -L \
             -X PATCH \
             -H "Accept: application/vnd.github+json" \
@@ -154,7 +154,7 @@ jobs:
             -d "{\"name\":\"LAST_BUILT_ISTOREOS_BRANCH\",\"value\":\"$BRANCH_NAME\"}" \
           || echo "Failed to update variable - this might be the first time, trying to create it"
           
-          # 如果变量不存在，尝试创建
+          # If the variable does not exist, try to create it
           curl -L \
             -X POST \
             -H "Accept: application/vnd.github+json" \
@@ -171,12 +171,12 @@ jobs:
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
-        # 使用 iStoreOS 分支名作为 Release Tag 的一部分，更具描述性
+        # Use the iStoreOS branch name as part of the Release Tag, which is more descriptive
         BRANCH_NAME="${{ github.event.inputs.istoreos_branch || 'istoreos-24.10.0' }}"
         DEVICE_SUFFIX="${{ env.DEVICE_NAME }}"
         DATE_SUFFIX="${{ env.FILE_DATE }}"
         
-        # 确保 tag 名称符合 Git 标签规范
+        # Make sure the tag name complies with the Git tag specification
         RELEASE_TAG="iStoreOS-${BRANCH_NAME}${DEVICE_SUFFIX}${DATE_SUFFIX}"
         
         echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
@@ -199,15 +199,15 @@ jobs:
         fail_on_unmatched_files: false
 
     - name: Delete workflow runs
-      uses: Mattraks/delete-workflow-runs@v2 # 更新到最新稳定版本
+      uses: Mattraks/delete-workflow-runs@v2 # Update to the latest stable version
       with:
         retain_days: 0
         keep_minimum_runs: 2
-        # 删除所有状态的 runs，包括成功、失败等，以便节省空间
-        delete_workflow_pattern: "iStoreOS Builder" # 指定只删除此工作流的运行记录
+        # Delete runs of all states, including success, failure, etc., to save space
+        delete_workflow_pattern: "iStoreOS Builder" # Specifies to delete only the running records of this workflow
 
     - name: Remove old Releases
-      uses: dev-drprasad/delete-older-releases@v0.3.3 # 使用更稳定的版本
+      uses: dev-drprasad/delete-older-releases@v0.3.3 # Use a more stable version
       if: env.UPLOAD_RELEASE == 'true' && env.CLEANUP_OLD_RELEASES == 'true' && !cancelled()
       with:
         keep_latest: 100

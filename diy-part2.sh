@@ -1,14 +1,14 @@
 #!/bin/bash
 #
-# iStoreOS NanoPi R1S H5 构建脚本 - Part 2
-# 基于 P3TERX/Actions-OpenWrt 修改，专用于 iStoreOS 固件构建
+# iStoreOS NanoPi R1S H5 build script - Part 2
+# Based on P3TERX/Actions-OpenWrt, specially used for iStoreOS firmware building
 #
-# 执行时机: Download package 前
-# 主要功能: 添加自定义 feeds 源，配置 iStoreOS 特定组件
+# Execution time: before downloading package
+# Main function: add custom feeds source, configure iStoreOS specific components
 #
-# 原项目: https://github.com/P3TERX/Actions-OpenWrt  
-# 原作者: Copyright (c) 2019-2024 P3TERX <https://p3terx.com>
-# 适配修改: CrueChan - 专门针对 iStoreOS 和 NanoPi R1S H5
+# Original project: https://github.com/P3TERX/Actions-OpenWrt
+# Original author: Copyright (c) 2019-2024 P3TERX <https://p3terx.com>
+# Adaptation modification: CrueChan - specially for iStoreOS and NanoPi R1S H5
 #
 # Licensed under the MIT License.
 #

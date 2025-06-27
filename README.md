@@ -4,114 +4,118 @@
 ![GitHub Stars](https://img.shields.io/github/stars/CrueChan/Actions-istoreOS-NanoPi-R1S-H5.svg?style=flat-square&label=Stars&logo=github)
 ![GitHub Forks](https://img.shields.io/github/forks/CrueChan/Actions-istoreOS-NanoPi-R1S-H5.svg?style=flat-square&label=Forks&logo=github)
 
-专为 NanoPi R1S H5 设备定制的 iStoreOS 固件自动构建项目，基于 GitHub Actions 实现自动化构建和版本管理。
+iStoreOS firmware automatic build project customized for NanoPi R1S H5 device, based on GitHub Actions to achieve automated build and version management.
 
-## ✨ 功能特性
+## ✨ Features
 
-- 🔄 **自动版本检测**: 定时检查 iStoreOS 上游仓库新版本
-- 🚀 **自动构建触发**: 发现新版本时自动开始构建流程
-- 📦 **Release 管理**: 自动发布固件到 GitHub Releases
-- 🎯 **设备专用**: 专门针对 NanoPi R1S H5 设备优化
-- ⚙️ **手动触发**: 支持手动指定分支进行构建
+- 🔄 **Automatic version detection**: Regularly check the new version of the iStoreOS upstream warehouse
 
-## 🏗️ 工作流说明
+- 🚀 **Automatic build trigger**: Automatically start the build process when a new version is found
 
-### 构建工作流 (build-istoreos.yml)
-基于 [P3TERX/Actions-OpenWrt](https://github.com/P3TERX/Actions-OpenWrt) 修改，专门用于 iStoreOS 固件编译：
-- 支持手动触发和自动触发
-- 自动提取设备信息和生成文件名
-- 上传固件到 Artifacts 和 Releases
-- 自动清理旧版本 Release
+- 📦 **Release management**: Automatically publish firmware to GitHub Releases
 
-### 版本检查工作流 (check-upstream-istoreos.yml)
-完全原创的自动化工作流，实现：
-- 每日定时检查上游 iStoreOS 新版本
-- 智能版本比较算法
-- 自动触发构建流程
-- 版本状态管理
+- 🎯 **Device-specific**: Optimized specifically for NanoPi R1S H5 devices
 
-## 🚀 使用方法
+- ⚙️ **Manual trigger**: Supports manually specifying branches for building
 
-### 1. Fork 本仓库
-点击右上角的 Fork 按钮创建你自己的副本。
+## 🏗️ Workflow description
 
-### 2. 配置构建文件（可选）
-- 添加 `.config` 文件到仓库根目录
-- 添加 `feeds.conf.default` 自定义源（可选）
-- 添加 `diy-part1.sh` 和 `diy-part2.sh` 自定义脚本（可选）
+### Build workflow (build-istoreos.yml)
+Based on [P3TERX/Actions-OpenWrt](https://github.com/P3TERX/Actions-OpenWrt), it is specially used for iStoreOS firmware compilation:
+- Support manual triggering and automatic triggering
+- Automatically extract device information and generate file names
+- Upload firmware to Artifacts and Releases
+- Automatically clean up old versions of Release
 
-### 3. 触发构建
+### Version check workflow (check-upstream-istoreos.yml)
+Completely original automated workflow, implements:
+- Check upstream iStoreOS new versions daily
+- Intelligent version comparison algorithm
+- Automatically trigger build process
+- Version status management
 
-#### 自动构建
-工作流会每天自动检查 iStoreOS 上游更新，发现新版本时自动构建。
+## 🚀 How to use
 
-#### 手动构建
-1. 进入 Actions 页面
-2. 选择 "iStoreOS Builder" 工作流
-3. 点击 "Run workflow" 按钮
-4. 选择要构建的 iStoreOS 分支（可选）
-5. 等待构建完成
+### 1. Fork this repository
+Click the Fork button in the upper right corner to create your own copy.
 
-### 4. 下载固件
-构建完成后，可通过以下方式获取固件：
-- **Artifacts**: Actions 页面右上角的 Artifacts 按钮
-- **Releases**: 仓库主页的 Releases 页面
+### 2. Configure build files (optional)
+- Add `.config` file to the repository root directory
+- Add `feeds.conf.default` custom source (optional)
+- Add `diy-part1.sh` and `diy-part2.sh` custom scripts (optional)
 
-## 📋 设备信息
+### 3. Trigger build
 
-- **目标设备**: NanoPi R1S H5
-- **架构**: ARM64
-- **固件系统**: iStoreOS
-- **支持的功能**: 
-  - 软路由功能
-  - Docker 容器支持
-  - iStore 应用商店
-  - 网络存储功能
+#### Automatic build
+The workflow will automatically check for iStoreOS upstream updates every day and automatically build when a new version is found.
 
-## ⚙️ 高级配置
+#### Manual build
+1. Go to the Actions page
+2. Select the "iStoreOS Builder" workflow
+3. Click the "Run workflow" button
+4. Select the iStoreOS branch to build (optional)
+5. Wait for the build to complete
 
-### 环境变量
-可在工作流文件中修改以下环境变量：
+### 4. Download the firmware
+After the build is complete, you can get the firmware in the following ways:
+- **Artifacts**: Artifacts button in the upper right corner of the Actions page
+- **Releases**: Releases page on the repository homepage
+
+## 📋 Device information
+
+- **Target device**: NanoPi R1S H5
+- **Architecture**: ARM64
+- **Firmware system**: iStoreOS
+- **Supported features**:
+- Soft router feature
+- Docker container support
+- iStore App Store
+- Network storage feature
+
+## ⚙️ Advanced configuration
+
+### Environment variables
+The following environment variables can be modified in the workflow file:
 ```yaml
 env:
-  UPLOAD_FIRMWARE: true      # 是否上传固件到 Artifacts
-  UPLOAD_RELEASE: true       # 是否发布到 Releases
-  TZ: Asia/Shanghai          # 时区设置
+UPLOAD_FIRMWARE: true # Whether to upload firmware to Artifacts
+UPLOAD_RELEASE: true # Whether to publish to Releases
+TZ: Asia/Shanghai # Time zone setting
 ```
 
-### 自定义脚本
-- `diy-part1.sh`: feeds 更新前执行的脚本
-- `diy-part2.sh`: 编译前执行的脚本
+### Custom scripts
+- `diy-part1.sh`: Script executed before feeds update
+- `diy-part2.sh`: Script executed before compilation
 
-## 🔧 故障排除
+## 🔧 Troubleshooting
 
-### 常见问题
-1. **构建失败**: 检查 Actions 日志，通常是配置文件或依赖问题
-2. **权限错误**: 确保仓库 Actions 权限设置正确
-3. **存储空间不足**: GitHub Actions 有存储限制，定期清理旧版本
+### Common problems
+1. **Build failed**: Check the Actions log, usually configuration files or dependency issues
+2. **Permission error**: Make sure the repository Actions permissions are set correctly
+3. **Insufficient storage space**: GitHub Actions has storage limits, clean up old versions regularly
 
-### 获取帮助
-- 查看 [Issues](https://github.com/CrueChan/Actions-istoreOS-NanoPi-R1S-H5/issues) 页面
-- 参考 [iStoreOS 官方文档](https://github.com/istoreos/istoreos)
+### Get help
+- View [Issues](https://github.com/CrueChan/Actions-istoreOS-NanoPi-R1S-H5/issues) page
+- Refer to [iStoreOS official documentation](https://github.com/istoreos/istoreos)
 
-## 🤝 贡献
+## 🤝 Contribution
 
-欢迎提交 Issue 和 Pull Request 来改进这个项目！
+Welcome to submit issues and pull requests to improve this project!
 
-## 📜 许可证
+## 📜 License
 
-本项目基于 MIT 许可证开源，详见 [LICENSE](LICENSE) 文件。
+This project is open source based on the MIT license, see the [LICENSE](LICENSE) file for details.
 
-## 🙏 致谢
+## 🙏 Acknowledgements
 
-- [P3TERX](https://github.com/P3TERX/Actions-OpenWrt) - 原始 GitHub Actions 工作流
-- [iStoreOS](https://github.com/istoreos/istoreos) - 固件系统
-- [GitHub Actions](https://github.com/features/actions) - CI/CD 平台
-- [NanoPi](http://nanopi.io/) - 硬件平台
-- [softprops/action-gh-release](https://github.com/softprops/action-gh-release) - Release 发布工具
-- [Mattraks/delete-workflow-runs](https://github.com/Mattraks/delete-workflow-runs) - 工作流清理工具
-- [dev-drprasad/delete-older-releases](https://github.com/dev-drprasad/delete-older-releases) - Release 清理工具
+- [P3TERX](https://github.com/P3TERX/Actions-OpenWrt) - Original GitHub Actions workflow
+- [iStoreOS](https://github.com/istoreos/istoreos) - Firmware system
+- [GitHub Actions](https://github.com/features/actions) - CI/CD platform
+- [NanoPi](http://nanopi.io/) - Hardware platform
+- [softprops/action-gh-release](https://github.com/softprops/action-gh-release) - Release release tool
+- [Mattraks/delete-workflow-runs](https://github.com/Mattraks/delete-workflow-runs) - Workflow cleanup tool
+- [dev-drprasad/delete-older-releases](https://github.com/dev-drprasad/delete-older-releases) - Release cleaning tool
 
 ---
 
-**免责声明**: 本项目仅供学习和研究使用，请遵守相关法律法规。
+**Disclaimer**: This project is for learning and research purposes only. Please comply with relevant laws and regulations.

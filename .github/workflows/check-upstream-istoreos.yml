@@ -1,10 +1,10 @@
 #
-# iStoreOS 上游版本检查工作流
-# 
-# 文件: .github/workflows/check-upstream-istoreos.yml
-# 描述: 自动检查 iStoreOS 上游仓库的新版本并触发构建
-# 作者: CrueChan
-# 创建时间: 2025-06-27
+# iStoreOS upstream version check workflow
+#
+# File: .github/workflows/check-upstream-istoreos.yml
+# Description: Automatically check the new version of the iStoreOS upstream repository and trigger a build
+# Author: CrueChan
+# Creation time: 2025-06-26
 #
 # Licensed under the MIT License.
 #
