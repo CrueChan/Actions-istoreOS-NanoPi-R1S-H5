@@ -1,13 +1,16 @@
 #!/bin/bash
 #
-# https://github.com/P3TERX/Actions-OpenWrt
-# File name: diy-part2.sh
-# Description: OpenWrt DIY script part 2 (After Update feeds)
+# iStoreOS NanoPi R1S H5 构建脚本 - Part 2
+# 基于 P3TERX/Actions-OpenWrt 修改，专用于 iStoreOS 固件构建
 #
-# Copyright (c) 2019-2024 P3TERX <https://p3terx.com>
+# 执行时机: Download package 前
+# 主要功能: 添加自定义 feeds 源，配置 iStoreOS 特定组件
 #
-# This is free software, licensed under the MIT License.
-# See /LICENSE for more information.
+# 原项目: https://github.com/P3TERX/Actions-OpenWrt  
+# 原作者: Copyright (c) 2019-2024 P3TERX <https://p3terx.com>
+# 适配修改: CrueChan - 专门针对 iStoreOS 和 NanoPi R1S H5
+#
+# Licensed under the MIT License.
 #
 
 # Modify default IP

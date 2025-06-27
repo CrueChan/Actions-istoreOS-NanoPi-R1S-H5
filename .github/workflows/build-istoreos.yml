@@ -1,10 +1,7 @@
 #
-# https://github.com/P3TERX/Actions-OpenWrt
-#
-# File: .github/workflows/openwrt-bulder.yml
-# Description: Build OpenWrt using GitHub Actions
-#
-# Copyright (c) 2019-2024 P3TERX <https://p3terx.com>
+# 基于 https://github.com/P3TERX/Actions-OpenWrt 修改
+# 原项目 Copyright (c) 2019-2024 P3TERX <https://p3terx.com>
+# 修改版本由 CrueChan 维护
 #
 # This is free software, licensed under the MIT License.
 # See /LICENSE for more information.
