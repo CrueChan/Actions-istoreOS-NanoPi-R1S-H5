@@ -19,5 +19,19 @@
 # Modify default theme
 sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
 
-# Modify hostname
-sed -i 's/OpenWrt/R1S-H5/g' package/base-files/files/bin/config_generate
+# Dynamically set hostname depending on platform configuration
+if grep -q 'CONFIG_TARGET_sunxi_cortexa53_DEVICE_friendlyarm_nanopi-r1s-h5=y' .config; then
+    sed -i 's/OpenWrt/R1S-H5/g' package/base-files/files/bin/config_generate
+    sed -i 's/iStoreOS/R1S-H5/g' package/base-files/files/bin/config_generate
+    sed -i 's/ImmortalWrt/R1S-H5/g' package/base-files/files/bin/config_generate
+elif grep -q 'CONFIG_TARGET_sunxi_cortexa7_DEVICE_friendlyarm_nanopi-r1s-h3=y' .config; then
+    sed -i 's/OpenWrt/R1S-H3/g' package/base-files/files/bin/config_generate
+    sed -i 's/iStoreOS/R1S-H3/g' package/base-files/files/bin/config_generate
+    sed -i 's/ImmortalWrt/R1S-H3/g' package/base-files/files/bin/config_generate
+else
+    # Fallback default
+    sed -i 's/OpenWrt/R1S-H5/g' package/base-files/files/bin/config_generate
+    sed -i 's/iStoreOS/R1S-H5/g' package/base-files/files/bin/config_generate
+    sed -i 's/ImmortalWrt/R1S-H5/g' package/base-files/files/bin/config_generate
+fi
+

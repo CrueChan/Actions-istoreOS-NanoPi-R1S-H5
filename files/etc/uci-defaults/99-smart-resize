@@ -1,0 +1,200 @@
+#!/bin/sh
+# First-Boot Smart Resize Script for iStoreOS NanoPi R1S H5/H3
+# Detects the TF card physical device and resizes rootfs partition and filesystem.
+
+# Function to log messages
+log_msg() {
+    echo "[Smart-Resize] $1"
+    logger -t smart-resize "$1"
+}
+
+log_msg "Starting first-boot smart resize script..."
+
+# 1. Handle error conditions gracefully (check if rootfs is ext4 and read-write)
+root_entry=$(awk '$2 == "/" {print; exit}' /proc/mounts)
+if [ -z "$root_entry" ]; then
+    log_msg "Error: Root filesystem mount entry not found in /proc/mounts. Exiting."
+    exit 0
+fi
+
+root_dev=$(echo "$root_entry" | awk '{print $1}')
+root_fs=$(echo "$root_entry" | awk '{print $3}')
+root_opts=$(echo "$root_entry" | awk '{print $4}')
+
+log_msg "Detected root device: $root_dev, FS type: $root_fs, mount options: $root_opts"
+
+if [ "$root_fs" != "ext4" ]; then
+    log_msg "Root filesystem is not ext4. Skipping resize to avoid soft-brick."
+    exit 0
+fi
+
+case ",$root_opts," in
+    *,ro,*)
+        log_msg "Root filesystem is read-only. Skipping resize."
+        exit 0
+        ;;
+    *,rw,*)
+        # read-write, proceed
+        ;;
+    *)
+        log_msg "Root filesystem options do not indicate read-write ($root_opts). Skipping resize."
+        exit 0
+        ;;
+esac
+
+# Resolve the major:minor device number for / from /proc/self/mountinfo
+root_dev_major_minor=$(awk '$5 == "/" {print $3}' /proc/self/mountinfo)
+if [ -z "$root_dev_major_minor" ] && [ -b "$root_dev" ]; then
+    # Fallback using stat if mountinfo is not parsed
+    root_dev_major_minor=$(stat -c '%t:%T' "$root_dev" 2>/dev/null)
+fi
+
+if [ -z "$root_dev_major_minor" ]; then
+    log_msg "Error: Could not resolve root device major:minor. Exiting."
+    exit 0
+fi
+
+resolved_path=$(readlink -f "/sys/dev/block/$root_dev_major_minor")
+if [ -z "$resolved_path" ] || [ ! -d "$resolved_path" ]; then
+    log_msg "Error: Could not resolve block device path for $root_dev_major_minor. Exiting."
+    exit 0
+fi
+
+if [ -f "$resolved_path/partition" ]; then
+    partition_num=$(cat "$resolved_path/partition")
+    parent_path=$(dirname "$resolved_path")
+else
+    log_msg "Error: Root filesystem is not on a partition. Exiting."
+    exit 0
+fi
+
+phy_dev_name=$(basename "$parent_path")
+phy_dev="/dev/$phy_dev_name"
+partition_dev="/dev/$(basename "$resolved_path")"
+
+log_msg "Physical device: $phy_dev, Partition device: $partition_dev, Partition number: $partition_num"
+
+if [ ! -b "$phy_dev" ] || [ ! -b "$partition_dev" ]; then
+    log_msg "Error: Physical device $phy_dev or partition $partition_dev is not a valid block device. Exiting."
+    exit 0
+fi
+
+size_file="/sys/class/block/$phy_dev_name/size"
+if [ ! -f "$size_file" ]; then
+    log_msg "Error: Size file $size_file does not exist. Exiting."
+    exit 0
+fi
+
+total_sectors=$(cat "$size_file")
+if [ -z "$total_sectors" ] || ! [ "$total_sectors" -eq "$total_sectors" ] 2>/dev/null; then
+    log_msg "Error: Invalid total sectors: $total_sectors. Exiting."
+    exit 0
+fi
+
+start_sector=$(cat "$resolved_path/start")
+if [ -z "$start_sector" ] || ! [ "$start_sector" -eq "$start_sector" ] 2>/dev/null; then
+    log_msg "Error: Could not read start sector of partition $partition_dev. Exiting."
+    exit 0
+fi
+
+log_msg "Total disk sectors: $total_sectors, Partition start sector: $start_sector"
+
+# 2. Threshold calculations
+# Threshold is 2.2 GB (4,613,734 sectors).
+# If <= 4,613,734 sectors, expand partition to 100% of the disk.
+# If > 4,613,734 sectors, limit partition expansion to 2GB (4,194,304 sectors).
+threshold=4613734
+limit_sectors=4194304
+
+if [ "$total_sectors" -le "$threshold" ]; then
+    log_msg "Disk size is <= 2.2 GB ($total_sectors sectors). Target size: 100% of the disk."
+    target_sectors=$((total_sectors - start_sector))
+    use_max=1
+else
+    log_msg "Disk size is > 2.2 GB ($total_sectors sectors). Target size: 2 GB ($limit_sectors sectors)."
+    target_sectors=$limit_sectors
+    if [ $((start_sector + target_sectors)) -gt "$total_sectors" ]; then
+        log_msg "Warning: 2 GB target size exceeds disk limits. Reverting to 100% of the disk."
+        target_sectors=$((total_sectors - start_sector))
+        use_max=1
+    else
+        use_max=0
+    fi
+fi
+
+end_sector=$((start_sector + target_sectors - 1))
+log_msg "Target partition size: $target_sectors sectors. Target end sector: $end_sector."
+
+# 3. Partition resize execution
+success=0
+
+# Try parted first
+if command -v parted >/dev/null 2>&1; then
+    log_msg "Attempting partition resize using parted..."
+    if [ "$use_max" -eq 1 ]; then
+        if parted -s "$phy_dev" resizepart "$partition_num" 100%; then
+            success=1
+        fi
+    else
+        if parted -s "$phy_dev" resizepart "$partition_num" "${end_sector}s"; then
+            success=1
+        fi
+    fi
+fi
+
+# Try sfdisk if parted failed or not available
+if [ "$success" -eq 0 ] && command -v sfdisk >/dev/null 2>&1; then
+    log_msg "Attempting partition resize using sfdisk..."
+    if [ "$use_max" -eq 1 ]; then
+        if echo "$start_sector,+" | sfdisk --no-reread -N "$partition_num" "$phy_dev"; then
+            success=1
+        fi
+    else
+        if echo "$start_sector,$target_sectors" | sfdisk --no-reread -N "$partition_num" "$phy_dev"; then
+            success=1
+        fi
+    fi
+fi
+
+# Try fdisk as final fallback
+if [ "$success" -eq 0 ] && command -v fdisk >/dev/null 2>&1; then
+    log_msg "Attempting partition resize using fdisk..."
+    # fdisk is interactive, so we pipe inputs.
+    # We send N to answer the potential signature removal prompt safely.
+    if [ "$use_max" -eq 1 ]; then
+        fdisk_cmd=$(printf "d\n%s\nn\np\n%s\n%s\n\nN\nw\n" "$partition_num" "$partition_num" "$start_sector")
+    else
+        fdisk_cmd=$(printf "d\n%s\nn\np\n%s\n%s\n%s\nN\nw\n" "$partition_num" "$partition_num" "$start_sector" "$end_sector")
+    fi
+    if echo "$fdisk_cmd" | fdisk "$phy_dev" >/dev/null 2>&1; then
+        success=1
+    fi
+fi
+
+if [ "$success" -eq 0 ]; then
+    log_msg "Error: Failed to rewrite partition table with any tool."
+    # Clean up script anyway to prevent potential boot/reboot loop
+    rm -f /etc/uci-defaults/99-smart-resize
+    exit 0
+fi
+
+# 4. Notify kernel of partition table updates
+log_msg "Updating kernel partition table..."
+if command -v partx >/dev/null 2>&1; then
+    partx -u "$partition_dev" || partx -u "$phy_dev"
+elif command -v partprobe >/dev/null 2>&1; then
+    partprobe "$phy_dev"
+fi
+
+# 5. Resize ext4 filesystem
+log_msg "Resizing ext4 filesystem on $partition_dev..."
+if resize2fs "$partition_dev"; then
+    log_msg "Smart resize completed successfully! Cleaning up and rebooting..."
+    rm -f /etc/uci-defaults/99-smart-resize
+    reboot
+else
+    log_msg "Error: Failed to resize filesystem using resize2fs."
+    # Clean up script anyway to prevent potential boot/reboot loop
+    rm -f /etc/uci-defaults/99-smart-resize
+    exit 0
+fi

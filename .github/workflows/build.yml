@@ -1,0 +1,243 @@
+#
+# ImmortalWrt Builder Workflow for NanoPi R1S H5 and H3
+# Based on P3TERX/Actions-OpenWrt
+# Modified version maintained by CrueChan
+#
+# This is free software, licensed under the MIT License.
+# See /LICENSE for more information.
+#
+
+name: ImmortalWrt Builder
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 1 * *'
+
+permissions:
+  contents: write
+  actions: write
+
+env:
+  REPO_URL: https://github.com/immortalwrt/immortalwrt
+  REPO_BRANCH: openwrt-25.12
+  FEEDS_CONF: feeds.conf.default
+  DIY_P1_SH: diy-part1.sh
+  DIY_P2_SH: diy-part2.sh
+  UPLOAD_BIN_DIR: false
+  UPLOAD_FIRMWARE: true
+  UPLOAD_RELEASE: true
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - device: nanopi-r1s-h5
+            target: sunxi
+            subtarget: cortexa53
+          - device: nanopi-r1s-h3
+            target: sunxi
+            subtarget: cortexa7
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Initialization environment
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+        sudo docker image prune --all --force
+        sudo -E apt-get -qq update
+        sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev parted
+        sudo -E apt-get -qq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo timedatectl set-timezone "$TZ"
+        sudo mkdir -p /workdir
+        sudo chown $USER:$GROUPS /workdir
+
+    - name: Cache build directories
+      uses: actions/cache@v4
+      with:
+        path: |
+          openwrt/dl
+          openwrt/staging_dir
+        key: ${{ runner.os }}-openwrt-cache-${{ matrix.device }}-${{ hashFiles('configs/25.12/*.config') }}
+        restore-keys: |
+          ${{ runner.os }}-openwrt-cache-${{ matrix.device }}-
+
+    - name: Clone ImmortalWrt source
+      working-directory: /workdir
+      run: |
+        df -hT $PWD
+        git clone $REPO_URL -b $REPO_BRANCH openwrt
+        ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+
+    - name: Load custom feeds
+      run: |
+        [ -e $FEEDS_CONF ] && cp $FEEDS_CONF openwrt/feeds.conf.default
+        [ -e $DIY_P1_SH ] && chmod +x $DIY_P1_SH
+        cd openwrt
+        [ -e $GITHUB_WORKSPACE/$DIY_P1_SH ] && $GITHUB_WORKSPACE/$DIY_P1_SH
+
+    - name: Update feeds
+      run: cd openwrt && ./scripts/feeds update -a
+
+    - name: Install feeds
+      run: cd openwrt && ./scripts/feeds install -a
+
+    - name: Load custom configuration
+      run: |
+        mkdir -p openwrt/files
+        [ -d files ] && cp -r files/* openwrt/files/ || true
+        cp configs/25.12/${{ matrix.device }}.config openwrt/.config
+        [ -e $DIY_P2_SH ] && chmod +x $DIY_P2_SH
+        cd openwrt
+        [ -e $GITHUB_WORKSPACE/$DIY_P2_SH ] && $GITHUB_WORKSPACE/$DIY_P2_SH
+
+    - name: Download package
+      id: package
+      run: |
+        cd openwrt
+        make defconfig
+        make download -j8
+        find dl -size -1024c -exec ls -l {} \;
+        find dl -size -1024c -exec rm -f {} \;
+
+    - name: Compile the firmware
+      id: compile
+      run: |
+        cd openwrt
+        echo -e "$(nproc) thread compile"
+        make -j$(nproc) || make -j1 || make -j1 V=s
+        echo "status=success" >> $GITHUB_OUTPUT
+        echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+
+    - name: Verify firmware image
+      run: |
+        echo "==== Starting Firmware Verification ===="
+        # Find the sysupgrade image
+        IMG_GZ=$(find openwrt/bin/targets/${{ matrix.target }}/${{ matrix.subtarget }}/ -name "*sysupgrade.img.gz" | head -n 1)
+        if [ -z "$IMG_GZ" ]; then
+          echo "Error: sysupgrade.img.gz not found!"
+          exit 1
+        fi
+        echo "Found firmware image: $IMG_GZ"
+        
+        # Uncompress image
+        echo "Uncompressing image..."
+        gunzip -c "$IMG_GZ" > test.img
+        
+        # Calculate rootfs offset (partition 2)
+        echo "Calculating partition 2 offset..."
+        offset=$(parted -s test.img unit b print | awk '/ 2 / {print $2}' | tr -d 'B')
+        if [ -z "$offset" ]; then
+          echo "Error: Could not calculate Rootfs partition offset."
+          exit 1
+        fi
+        echo "Partition 2 offset: $offset bytes"
+        
+        # Create mount directory and mount via loop
+        sudo mkdir -p /mnt/rootfs
+        echo "Mounting rootfs..."
+        sudo mount -o loop,offset=$offset test.img /mnt/rootfs
+        
+        # Check static assertions
+        echo "Running static assertions..."
+        
+        # Assertion A: Check if 99-smart-resize exists
+        if [ ! -f /mnt/rootfs/etc/uci-defaults/99-smart-resize ]; then
+          echo "Assertion A Failed: /etc/uci-defaults/99-smart-resize does not exist!"
+          sudo umount /mnt/rootfs
+          exit 1
+        fi
+        echo "Assertion A Passed: /etc/uci-defaults/99-smart-resize exists."
+        
+        # Assertion B: Check if wireless driver or its .ko exists in modules.dep
+        DEP_FILE=$(find /mnt/rootfs/lib/modules/ -name "modules.dep" | head -n 1)
+        if [ -z "$DEP_FILE" ]; then
+          echo "Assertion B Failed: modules.dep not found!"
+          sudo umount /mnt/rootfs
+          exit 1
+        fi
+        echo "Found modules.dep at: $DEP_FILE"
+        if ! grep -q -E "8189es|rtl8189es" "$DEP_FILE"; then
+          echo "Assertion B Failed: wireless driver rtl8189es not found in modules.dep!"
+          sudo umount /mnt/rootfs
+          exit 1
+        fi
+        echo "Assertion B Passed: wireless driver rtl8189es found in modules.dep."
+        
+        # Assertion C: Check if WAN/LAN definitions exist in /etc/config/network
+        NET_CONF="/mnt/rootfs/etc/config/network"
+        if [ ! -f "$NET_CONF" ]; then
+          echo "Assertion C Failed: /etc/config/network does not exist!"
+          sudo umount /mnt/rootfs
+          exit 1
+        fi
+        if ! grep -q -E "interface '?lan'?" "$NET_CONF"; then
+          echo "Assertion C Failed: LAN interface definition not found in network config!"
+          sudo umount /mnt/rootfs
+          exit 1
+        fi
+        if ! grep -q -E "interface '?wan'?" "$NET_CONF"; then
+          echo "Assertion C Failed: WAN interface definition not found in network config!"
+          sudo umount /mnt/rootfs
+          exit 1
+        fi
+        echo "Assertion C Passed: network WAN/LAN definitions found in network config."
+        
+        # Umount loop
+        echo "Unmounting rootfs..."
+        sudo umount /mnt/rootfs
+        echo "==== Firmware Verification Passed Successfully! ===="
+
+    - name: Check space usage
+      if: (!cancelled())
+      run: df -hT
+
+    - name: Organize firmware files
+      id: organize
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+      run: |
+        mkdir -p ${{ github.workspace }}/firmware_output
+        find openwrt/bin/targets/ -type f \( -name "*.img.gz" -o -name "*.bin" -o -name "*.manifest" -o -name "*.buildinfo" \) -exec mv {} ${{ github.workspace }}/firmware_output/ \;
+        echo "FIRMWARE_PATH=${{ github.workspace }}/firmware_output" >> $GITHUB_ENV
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: Upload firmware to Artifacts
+      uses: actions/upload-artifact@v4
+      if: steps.organize.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+      with:
+        name: ImmortalWrt-Firmware-${{ matrix.device }}${{ env.FILE_DATE }}
+        path: ${{ env.FIRMWARE_PATH }}/*
+
+    - name: Generate release tag
+      id: tag
+      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      run: |
+        DEVICE_SUFFIX="_${{ matrix.device }}"
+        FILE_DATE="_$(date +"%Y%m%d%H%M")"
+        RELEASE_TAG="ImmortalWrt-${{ env.REPO_BRANCH }}${DEVICE_SUFFIX}${FILE_DATE}"
+        echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+        touch release.txt
+        echo "Build triggered by: ${{ github.event_name }}" >> release.txt
+        echo "ImmortalWrt Branch: ${{ env.REPO_BRANCH }}" >> release.txt
+        echo "Device: ${{ matrix.device }}" >> release.txt
+        echo "Build Date: $(date)" >> release.txt
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: Upload firmware to release
+      uses: softprops/action-gh-release@v2
+      if: steps.tag.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
+      with:
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        body_path: release.txt
+        files: ${{ env.FIRMWARE_PATH }}/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,45 @@
+#!/bin/sh
+
+# Network configuration default mapping for NanoPi R1S (H5 & H3)
+# Physical WAN -> eth0 (Native Gigabit)
+# Physical LAN -> eth1 (USB Gigabit Bridge)
+
+has_br_lan=0
+idx=0
+while true; do
+    name=$(uci -q get network.@device[$idx].name)
+    [ -z "$name" ] && break
+    if [ "$name" = "br-lan" ]; then
+        has_br_lan=1
+        # Clear existing ports and assign eth1 to br-lan
+        uci -q del_list network.@device[$idx].ports='eth0'
+        uci -q del_list network.@device[$idx].ports='eth1'
+        uci -q add_list network.@device[$idx].ports='eth1'
+        break
+    fi
+    idx=$((idx + 1))
+done
+
+if [ "$has_br_lan" -eq 1 ]; then
+    uci -q batch <<EOF
+set network.lan.device='br-lan'
+set network.lan.ifname='br-lan'
+set network.wan.device='eth0'
+set network.wan.ifname='eth0'
+set network.wan6.device='eth0'
+set network.wan6.ifname='eth0'
+commit network
+EOF
+else
+    uci -q batch <<EOF
+set network.lan.device='eth1'
+set network.lan.ifname='eth1'
+set network.wan.device='eth0'
+set network.wan.ifname='eth0'
+set network.wan6.device='eth0'
+set network.wan6.ifname='eth0'
+commit network
+EOF
+fi
+
+exit 0
