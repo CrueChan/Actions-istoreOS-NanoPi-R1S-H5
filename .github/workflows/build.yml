@@ -121,10 +121,10 @@ jobs:
     - name: Verify firmware image
       run: |
         echo "==== Starting Firmware Verification ===="
-        # Find the sysupgrade image
-        IMG_GZ=$(find openwrt/bin/targets/${{ matrix.target }}/${{ matrix.subtarget }}/ -name "*sysupgrade.img.gz" | head -n 1)
+        # Find the ext4 sdcard image
+        IMG_GZ=$(find openwrt/bin/targets/${{ matrix.target }}/${{ matrix.subtarget }}/ -name "*ext4-sdcard.img.gz" | head -n 1)
         if [ -z "$IMG_GZ" ]; then
-          echo "Error: sysupgrade.img.gz not found!"
+          echo "Error: ext4-sdcard.img.gz not found!"
           exit 1
         fi
         echo "Found firmware image: $IMG_GZ"
