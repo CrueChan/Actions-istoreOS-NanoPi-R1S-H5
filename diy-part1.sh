@@ -23,6 +23,3 @@ if ! grep -q 'openwrt-wireless-drivers' feeds.conf.default; then
     echo 'src-git wireless https://github.com/sbwml/openwrt-wireless-drivers' >> feeds.conf.default
 fi
 
-if ! grep -q 'openwrt-passwall' feeds.conf.default; then
-    echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall' >> feeds.conf.default
-fi
