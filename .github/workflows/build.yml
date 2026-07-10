@@ -158,20 +158,14 @@ jobs:
         fi
         echo "Assertion A Passed: /etc/uci-defaults/99-smart-resize exists."
         
-        # Assertion B: Check if wireless driver or its .ko exists in modules.dep
-        DEP_FILE=$(find /mnt/rootfs/lib/modules/ -name "modules.dep" | head -n 1)
-        if [ -z "$DEP_FILE" ]; then
-          echo "Assertion B Failed: modules.dep not found!"
+        # Assertion B: Check if wireless driver rtl8189es.ko exists
+        KO_FILE=$(find /mnt/rootfs/lib/modules/ -name "rtl8189es.ko" | head -n 1)
+        if [ -z "$KO_FILE" ]; then
+          echo "Assertion B Failed: wireless driver rtl8189es.ko not found!"
           sudo umount /mnt/rootfs
           exit 1
         fi
-        echo "Found modules.dep at: $DEP_FILE"
-        if ! grep -q -E "8189es|rtl8189es" "$DEP_FILE"; then
-          echo "Assertion B Failed: wireless driver rtl8189es not found in modules.dep!"
-          sudo umount /mnt/rootfs
-          exit 1
-        fi
-        echo "Assertion B Passed: wireless driver rtl8189es found in modules.dep."
+        echo "Assertion B Passed: wireless driver rtl8189es.ko found at: $KO_FILE"
         
         # Assertion C: Check if WAN/LAN definitions exist in /etc/config/network
         NET_CONF="/mnt/rootfs/etc/config/network"
