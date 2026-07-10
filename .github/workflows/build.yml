@@ -167,24 +167,24 @@ jobs:
         fi
         echo "Assertion B Passed: wireless driver rtl8189es.ko found at: $KO_FILE"
         
-        # Assertion C: Check if WAN/LAN definitions exist in /etc/config/network
-        NET_CONF="/mnt/rootfs/etc/config/network"
-        if [ ! -f "$NET_CONF" ]; then
-          echo "Assertion C Failed: /etc/config/network does not exist!"
+        # Assertion C: Check if custom network defaults config exists and contains correct rules
+        NET_DEFAULTS="/mnt/rootfs/etc/uci-defaults/10-custom-network"
+        if [ ! -f "$NET_DEFAULTS" ]; then
+          echo "Assertion C Failed: /etc/uci-defaults/10-custom-network does not exist!"
           sudo umount /mnt/rootfs
           exit 1
         fi
-        if ! grep -q -E "interface '?lan'?" "$NET_CONF"; then
-          echo "Assertion C Failed: LAN interface definition not found in network config!"
+        if ! grep -q -E "network\.lan\.device" "$NET_DEFAULTS"; then
+          echo "Assertion C Failed: LAN device mappings not found in custom network defaults!"
           sudo umount /mnt/rootfs
           exit 1
         fi
-        if ! grep -q -E "interface '?wan'?" "$NET_CONF"; then
-          echo "Assertion C Failed: WAN interface definition not found in network config!"
+        if ! grep -q -E "network\.wan\.device" "$NET_DEFAULTS"; then
+          echo "Assertion C Failed: WAN device mappings not found in custom network defaults!"
           sudo umount /mnt/rootfs
           exit 1
         fi
-        echo "Assertion C Passed: network WAN/LAN definitions found in network config."
+        echo "Assertion C Passed: custom network defaults config exists and verified successfully."
         
         # Umount loop
         echo "Unmounting rootfs..."
