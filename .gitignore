@@ -1,0 +1,10 @@
+# OpenWrt/ImmortalWrt temporary files
+.config
+.config.old
+/firmware_output/
+/imagebuilder/
+imagebuilder.tar.zst
+test.img
+
+# Project local design and private documents
+/doc/
