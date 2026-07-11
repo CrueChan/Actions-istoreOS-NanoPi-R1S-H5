@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [25.12.0-IB] - 2026-07-11
+
+### Image Builder Transition & Delivery
+- **Image Builder Packaging Strategy**: Migrated the entire build pipeline from resource-heavy **Source Code Compilation** (frequent GCC OOMs and timeouts) to lightweight **Official Image Builder Packaging**. Condenses CI/CD duration from 2.5 hours down to **4 minutes 38 seconds** with 100% success rate.
+- **H3 Architecture Pruning**: Excluded H3 from the build matrix since upstream ImmortalWrt 25.12 officially does not compile or distribute firmware/profiles for NanoPi R1S-H3. Focused resources strictly on delivering the robust H5 target.
+- **Dependency Ingestion**: Automatically pulls `luci-theme-argon`, `luci-app-passwall`, `xray-core`, and `sing-box` from the official repository feeds, guaranteeing up-to-date proxy capabilities for the H5 platform.
+- **Parted Offset Parsing Fix**: Solved the parting parser defect where start sector string contained trailing 's', preventing partition offsets from evaluating correctly.
+
 ## [25.12.0] - 2026-07-10
 
 ### Major Rewrite & Platform Upgrade
