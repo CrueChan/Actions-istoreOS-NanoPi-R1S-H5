@@ -87,7 +87,7 @@ jobs:
         gunzip -c "$IMG_GZ" > test.img
         
         # Calculate Rootfs partition (partition 2) offset
-        START_SECTOR=$(parted -s test.img unit s print | awk '/ 2 / {print $2}')
+        START_SECTOR=$(parted -s test.img unit s print | awk '/ 2 / {print $2}' | tr -d 's')
         if [ -z "$START_SECTOR" ]; then
           echo "Error: partition 2 not found!"
           exit 1
