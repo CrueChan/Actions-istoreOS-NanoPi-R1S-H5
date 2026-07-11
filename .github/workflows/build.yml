@@ -29,12 +29,12 @@ jobs:
             target: sunxi
             subtarget: cortexa53
             profile: friendlyarm_nanopi-r1s-h5
-            packages: "luci-theme-argon luci-app-argon-config luci-app-diskman luci-app-ddns luci-app-upnp luci-app-wol luci-app-passwall xray-core sing-box kmod-rtl8189es kmod-rtl8723bu rtl8189es-firmware rtl8723bu-firmware"
+            packages: "luci-theme-argon luci-app-argon-config luci-app-diskman luci-app-ddns luci-app-upnp luci-app-wol luci-app-passwall xray-core sing-box kmod-rtl8189es"
           - device: nanopi-r1s-h3
             target: sunxi
             subtarget: cortexa7
             profile: friendlyarm_nanopi-r1s-h3
-            packages: "luci-theme-argon luci-app-argon-config luci-app-diskman luci-app-ddns luci-app-upnp luci-app-wol kmod-rtl8189es kmod-rtl8723bu rtl8189es-firmware rtl8723bu-firmware"
+            packages: "luci-theme-argon luci-app-argon-config luci-app-diskman luci-app-ddns luci-app-upnp luci-app-wol kmod-rtl8189es"
 
     steps:
     - name: Checkout
