@@ -43,13 +43,17 @@ To optimize download sizes and protect the lifespan of your TF card, this projec
 ### Applications and Services
 | Package Name | Function | Description |
 | :--- | :--- | :--- |
-| `luci-app-passwall` | Proxy Client | Supports multiple protocols, running Xray/sing-box cores |
+| `luci-app-passwall` | Proxy Client | Supports multiple protocols, running Xray/sing-box cores (H5 only) |
 | `luci-theme-argon` | Modern Theme | Elegant responsive interface for desktop & mobile devices |
 | `luci-app-argon-config`| Theme Configuration| Customize argon theme backgrounds, colors, and login logo |
 | `luci-app-diskman` | Disk Management | Manage partitions, format, and mount unallocated TF card space |
 | `luci-app-ddns` | Dynamic DNS | Automated IP sync with Cloudflare, Aliyun, DNSPod, etc. |
 | `luci-app-upnp` | UPnP Mapping | Automated port mapping for gaming and P2P downloads |
 | `luci-app-wol` | Wake-on-LAN | Wake up remote computers directly from the router interface |
+
+> [!NOTE]
+> **Platform Software Variance:**
+> To prevent compilation timeouts (exceeding the GitHub Actions 6-hour limit) and ensure stable performance on 512MB RAM, the **NanoPi R1S-H3** slim configuration excludes Go-based proxy software (`luci-app-passwall`, `xray-core`, `sing-box`). The **NanoPi R1S-H5** configuration includes the full set of applications.
 
 ---
 

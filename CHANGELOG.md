@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file.
 - **Upstream Migration**: Upgraded the firmware build base from the legacy iStoreOS (based on older OpenWrt 21.02/22.03 branches) to **ImmortalWrt 25.12** stable branch. This brings access to the latest Linux 6.x kernel, GCC 13+ compiler toolchain, and modernized package repositories.
 - **Dual Platform Support**: Expanded support to compile for two platforms in parallel:
   - **NanoPi R1S-H5** (Allwinner H5, 64-bit Cortex-A53, `sunxi/cortexa53`)
-  - **NanoPi R1S-H3** (Allwinner H3, 32-bit Cortex-A7, `sunxi/cortexa7`)
+  - **NanoPi R1S-H3** (Allwinner H3, 32-bit Cortex-A7, `sunxi/cortexa7` - slim configuration without heavy Go-based proxy software due to hardware and compilation constraints)
 - **Version Isolation**: Structured target configurations into `/configs/25.12/` directory to separate device-specific configs, facilitating smooth future upstream upgrades.
 
 ### CI/CD Pipeline & Workflow Enhancements
@@ -36,7 +36,7 @@ All notable changes to this project will be documented in this file.
 - **VLAN & Port Mapping**: Structured network initialization to correctly map `eth0` and `eth1` interfaces to WAN/LAN roles on first boot, eliminating reversed interface issues.
 
 ### Software Stack & Pre-installed Services
-- **科学上网 (Proxy Services)**: Pre-installed `luci-app-passwall` along with modern `Xray` and `sing-box` cores.
+- **科学上网 (Proxy Services)**: Pre-installed `luci-app-passwall` along with modern `Xray` and `sing-box` cores (H5 only).
 - **UI & Custom Theme**: Set the modern, responsive `luci-theme-argon` and its config panel `luci-app-argon-config` as the default theme.
 - **Disk Management**: Pre-installed `luci-app-diskman` for easy partitioning and formatting of unallocated TF card space.
 - **Utility Tools**: Added `luci-app-ddns` (dynamic DNS), `luci-app-upnp` (UPnP port mapping), and `luci-app-wol` (Wake-on-LAN).
