@@ -51,6 +51,12 @@ jobs:
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
+        # Create and enable 4GB swap space to prevent memory starvation (OOM)
+        sudo fallocate -l 4G /swapfile_temp
+        sudo chmod 600 /swapfile_temp
+        sudo mkswap /swapfile_temp
+        sudo swapon /swapfile_temp
+        free -h
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/powershell /usr/share/swift
         sudo docker image prune --all --force
         sudo -E apt-get -qq update
