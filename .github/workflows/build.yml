@@ -45,17 +45,17 @@ jobs:
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/powershell /usr/share/swift
         sudo docker image prune --all --force
         sudo -E apt-get -qq update
-        sudo -E apt-get -qqy install wget curl tar xz-utils make parted
+        sudo -E apt-get -qqy install wget curl tar zstd make parted
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
 
     - name: Download and unpack Image Builder
       run: |
         VERSION="25.12.0"
-        IB_URL="https://downloads.immortalwrt.org/releases/${VERSION}/targets/${{ matrix.target }}/${{ matrix.subtarget }}/immortalwrt-imagebuilder-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}.Linux-x86_64.tar.xz"
+        IB_URL="https://downloads.immortalwrt.org/releases/${VERSION}/targets/${{ matrix.target }}/${{ matrix.subtarget }}/immortalwrt-imagebuilder-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}.Linux-x86_64.tar.zst"
         echo "Downloading Image Builder from $IB_URL"
-        wget -q "$IB_URL" -O imagebuilder.tar.xz
-        tar -xJf imagebuilder.tar.xz
+        wget -q "$IB_URL" -O imagebuilder.tar.zst
+        tar -xf imagebuilder.tar.zst
         mv immortalwrt-imagebuilder-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}.Linux-x86_64 imagebuilder
 
     - name: Build firmware image
