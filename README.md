@@ -4,17 +4,17 @@
 ![GitHub Stars](https://img.shields.io/github/stars/CrueChan/Actions-istoreOS-NanoPi-R1S-H5.svg?style=flat-square&label=Stars&logo=github)
 ![GitHub Forks](https://img.shields.io/github/forks/CrueChan/Actions-istoreOS-NanoPi-R1S-H5.svg?style=flat-square&label=Forks&logo=github)
 
-Automated GitHub Actions build workflow for NanoPi R1S H5 and H3 dual platforms, upgraded to **ImmortalWrt 25.12** stable branch (Linux kernel 6.x).
+Automated GitHub Actions build workflow for **NanoPi R1S-H5** (64-bit Cortex-A53), upgraded to **ImmortalWrt 25.12** stable branch (Linux kernel 6.x).
 
 ---
 
 ## ✨ Features
 
-- ⚡ **Dual Platform Parallel Build**: Utilizes GitHub Actions matrix strategy to build for both NanoPi R1S-H5 (64-bit Cortex-A53) and R1S-H3 (32-bit Cortex-A7) concurrently.
+- ⚡ **Lightweight Image Builder Integration**: Transitioned from heavy toolchain cross-compilation to the official ImmortalWrt Image Builder. Condenses compilation time from 2.5 hours down to 4 minutes while retaining extreme stability.
 - 💾 **Smart Partition Resize**: Small initial firmware size for fast downloading and flashing, with an automated smart expansion system on the first boot.
-- 📶 **Onboard Wi-Fi Support**: Pre-integrated SDIO wireless drivers for RTL8189ES and RTL8723BU to ensure out-of-the-box AP/Client mode availability.
+- 📶 **Onboard Wi-Fi Support**: Pre-integrated native SDIO wireless driver `kmod-rtl8189es` (supports ETV/FTV chips) to ensure out-of-the-box AP/Client mode availability.
 - 🛡️ **Static Verification Checks**: Incorporates a CI/CD assertion job that loop-mounts the compiled rootfs in the cloud to verify kernel modules, network port mapping, and partition expansion scripts before releasing.
-- 📦 **Automated Release Publishing**: Publishes compiled system images (including sysupgrade packages) directly to GitHub Releases.
+- 📦 **Automated Release Publishing**: Publishes compiled system images directly to GitHub Releases.
 - 🚀 **Monthly Cron / Manual Compilation**: Keeps up-to-date with upstream packages, security updates, and proxy cores automatically.
 
 ---
@@ -35,10 +35,8 @@ To optimize download sizes and protect the lifespan of your TF card, this projec
 ## 📋 Pre-installed Drivers & Software
 
 ### Onboard Hardware Drivers
-- `kmod-rtl8189es` - RTL8189ES SDIO Wi-Fi driver
-- `kmod-rtl8723bu` - RTL8723BU SDIO Wi-Fi driver
-- `rtl8189es-firmware` & `rtl8723bu-firmware` - Required firmware assets
-- Custom double-port mapping (VLAN configured WAN on `eth0` / LAN on `eth1` dynamically on boot)
+- `kmod-rtl8189es` - RTL8189ES SDIO Wi-Fi driver (supports both RTL8189ES and compatible RTL8189FTV/FS onboard chips).
+- Custom double-port mapping (VLAN configured WAN on `eth0` / LAN on `eth1` dynamically on boot).
 
 ### Applications and Services
 | Package Name | Function | Description |
@@ -52,8 +50,8 @@ To optimize download sizes and protect the lifespan of your TF card, this projec
 | `luci-app-wol` | Wake-on-LAN | Wake up remote computers directly from the router interface |
 
 > [!NOTE]
-> **Platform Software Variance:**
-> To prevent compilation timeouts (exceeding the GitHub Actions 6-hour limit) and ensure stable performance on 512MB RAM, the **NanoPi R1S-H3** slim configuration excludes Go-based proxy software (`luci-app-passwall`, `xray-core`, `sing-box`). The **NanoPi R1S-H5** configuration includes the full set of applications.
+> **Upstream H3 Platform Support Status:**
+> The NanoPi R1S-H3 (32-bit Cortex-A7) platform is currently excluded from the default Image Builder matrix due to a lack of official stable target profiles in upstream ImmortalWrt 25.12.0 release branches. R1S-H5 configuration compiles and delivers the full set of applications out-of-the-box.
 
 ---
 
@@ -89,10 +87,33 @@ Click the **Fork** button in the upper right corner to create a copy of this rep
 - Place custom configurations under `/configs/25.12/` (e.g., `nanopi-r1s-h5.config` or `nanopi-r1s-h3.config`).
 - Modify `diy-part1.sh` (executed before feeds update) and `diy-part2.sh` (executed before compilation) to inject scripts or packages.
 
-### 3. Retrieve Firmware
-Once the workflow finishes successfully, your firmware will be available in:
-- **Artifacts**: Accessible from the action run summary page.
-- **Releases**: Published on your repository's Releases page.
+### 3. Flash & Upgrade Guide (For Release Users)
+
+For users downloading pre-compiled system images directly from the **Releases** page:
+
+#### ⚡ Option A: Fresh Installation / First-time Flash (Required when migrating from iStoreOS)
+Since migrating to ImmortalWrt 25.12 involves kernel upgrade (Linux 5.x ➜ 6.x) and partition table structure variance, **do not attempt Web upgrade from legacy iStoreOS**. A clean flashing is required:
+1. Download `*-squashfs-sdcard.img.gz` (recommended for recovery reset) or `*-ext4-sdcard.img.gz` from the latest Release.
+2. Uncompress the `.gz` file locally to retrieve the raw `.img` firmware file.
+3. Insert your TF (SD) card into your computer.
+4. Use **Rufus** (Windows) or **BalenaEtcher** (Cross-platform) to burn the `.img` directly to the card.
+5. Plug the card back into your NanoPi R1S-H5 and power it on.
+
+#### 🔄 Option B: Daily Web Upgrades (For subsequent upgrades)
+Once you are already running this project's ImmortalWrt 25.12 system:
+1. Download the latest `*-sdcard.img.gz` file from the Release (Do **not** uncompress it).
+2. Navigate to your router Web GUI under **System** ➜ **Backup/Flash Firmware**.
+3. In the **Flash new firmware image** section, upload the `*-sdcard.img.gz` file directly.
+4. Keep **Keep settings** checked if you want to retain your configurations, and click **Flash image** to execute a painless Web hot upgrade without unplugging the SD card!
+
+---
+
+### 4. Customizing and Building (For Developers)
+If you wish to compile your own custom images using this repository:
+1. Click the **Fork** button in the upper right corner to create a copy under your account.
+2. Place custom configs under `/configs/25.12/` (e.g., `nanopi-r1s-h5.config`).
+3. Modify `diy-part1.sh` (executed before feeds update) and `diy-part2.sh` (executed before packaging) to inject packages.
+4. Once the workflow finishes successfully, your custom firmware will be available in **Artifacts** and **Releases** on your repository.
 
 ---
 
@@ -105,5 +126,5 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 - [P3TERX](https://github.com/P3TERX/Actions-OpenWrt) - Original Action workflow baseline
 - [ImmortalWrt](https://github.com/immortalwrt/immortalwrt) - Operating system base
 - [sbwml](https://github.com/sbwml/openwrt-wireless-drivers) - OpenWrt wireless drivers repository
-- [xiaorouji](https://github.com/xiaorouji/openwrt-passwall) - PassWall upstream source
+- [Openwrt-Passwall](https://github.com/Openwrt-Passwall/openwrt-passwall) - PassWall upstream source
 - [jerrykuku](https://github.com/jerrykuku/luci-theme-argon) - Argon theme
