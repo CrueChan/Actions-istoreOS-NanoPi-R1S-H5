@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [24.10.6-IB] - 2026-07-13
+
+### Downgrade & Version Pinning
+- **Pin to 24.10.6 Stable**: Pinned the firmware base to **ImmortalWrt 24.10.6** (Linux kernel 6.1) due to USB/LAN controller driver regressions in the 25.12.x kernel on the Allwinner H5 SoC. This restores full functionality to the USB-to-Ethernet LAN port.
+- **Directory Structure Migration**: Renamed `/configs/25.12/` to `/configs/24.10/` to align with the active build target.
+
 ## [25.12.0-IB] - 2026-07-11
 
 ### Image Builder Transition & Delivery

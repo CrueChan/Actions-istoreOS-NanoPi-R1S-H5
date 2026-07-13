@@ -4,7 +4,7 @@
 ![GitHub Stars](https://img.shields.io/github/stars/CrueChan/Actions-istoreOS-NanoPi-R1S-H5.svg?style=flat-square&label=Stars&logo=github)
 ![GitHub Forks](https://img.shields.io/github/forks/CrueChan/Actions-istoreOS-NanoPi-R1S-H5.svg?style=flat-square&label=Forks&logo=github)
 
-Automated GitHub Actions build workflow for **NanoPi R1S-H5** (64-bit Cortex-A53), upgraded to **ImmortalWrt 25.12** stable branch (Linux kernel 6.x).
+Automated GitHub Actions build workflow for **NanoPi R1S-H5** (64-bit Cortex-A53), pinned to **ImmortalWrt 24.10** stable branch (Linux kernel 6.1) to avoid H5 USB/LAN controller driver regressions.
 
 ---
 
@@ -51,7 +51,7 @@ To optimize download sizes and protect the lifespan of your TF card, this projec
 
 > [!NOTE]
 > **Upstream H3 Platform Support Status:**
-> The NanoPi R1S-H3 (32-bit Cortex-A7) platform is currently excluded from the default Image Builder matrix due to a lack of official stable target profiles in upstream ImmortalWrt 25.12.0 release branches. R1S-H5 configuration compiles and delivers the full set of applications out-of-the-box.
+> The NanoPi R1S-H3 (32-bit Cortex-A7) platform is currently excluded from the default Image Builder matrix due to a lack of official stable target profiles in upstream ImmortalWrt 24.10 release branches. R1S-H5 configuration compiles and delivers the full set of applications out-of-the-box.
 
 ---
 
@@ -63,7 +63,7 @@ To optimize download sizes and protect the lifespan of your TF card, this projec
 - **Manual Trigger**:
   1. Navigate to the **Actions** tab on your repository.
   2. Select the **ImmortalWrt Builder** workflow.
-  3. Click **Run workflow**, choose your branch (defaults to `openwrt-25.12`), and trigger.
+  3. Click **Run workflow**, choose your branch (defaults to `openwrt-24.10`), and trigger.
 
 ### 2. GITHUB_TOKEN Permissions Configuration
 
@@ -84,7 +84,7 @@ For the workflow to successfully write environment variables, release tags, and 
 Click the **Fork** button in the upper right corner to create a copy of this repository under your GitHub account.
 
 ### 2. Configure Settings (Optional)
-- Place custom configurations under `/configs/25.12/` (e.g., `nanopi-r1s-h5.config` or `nanopi-r1s-h3.config`).
+- Place custom configurations under `/configs/24.10/` (e.g., `nanopi-r1s-h5.config` or `nanopi-r1s-h3.config`).
 - Modify `diy-part1.sh` (executed before feeds update) and `diy-part2.sh` (executed before compilation) to inject scripts or packages.
 
 ### 3. Flash & Upgrade Guide (For Release Users)
@@ -92,7 +92,7 @@ Click the **Fork** button in the upper right corner to create a copy of this rep
 For users downloading pre-compiled system images directly from the **Releases** page:
 
 #### ⚡ Option A: Fresh Installation / First-time Flash (Required when migrating from iStoreOS)
-Since migrating to ImmortalWrt 25.12 involves kernel upgrade (Linux 5.x ➜ 6.x) and partition table structure variance, **do not attempt Web upgrade from legacy iStoreOS**. A clean flashing is required:
+Since migrating to ImmortalWrt 24.10 involves kernel upgrade (Linux 5.x ➜ 6.1) and partition table structure variance, **do not attempt Web upgrade from legacy iStoreOS**. A clean flashing is required:
 1. Download `*-squashfs-sdcard.img.gz` (recommended for recovery reset) or `*-ext4-sdcard.img.gz` from the latest Release.
 2. Uncompress the `.gz` file locally to retrieve the raw `.img` firmware file.
 3. Insert your TF (SD) card into your computer.
@@ -100,7 +100,7 @@ Since migrating to ImmortalWrt 25.12 involves kernel upgrade (Linux 5.x ➜ 6.x)
 5. Plug the card back into your NanoPi R1S-H5 and power it on.
 
 #### 🔄 Option B: Daily Web Upgrades (For subsequent upgrades)
-Once you are already running this project's ImmortalWrt 25.12 system:
+Once you are already running this project's ImmortalWrt 24.10 system:
 1. Download the latest `*-sdcard.img.gz` file from the Release (Do **not** uncompress it).
 2. Navigate to your router Web GUI under **System** ➜ **Backup/Flash Firmware**.
 3. In the **Flash new firmware image** section, upload the `*-sdcard.img.gz` file directly.
@@ -111,7 +111,7 @@ Once you are already running this project's ImmortalWrt 25.12 system:
 ### 4. Customizing and Building (For Developers)
 If you wish to compile your own custom images using this repository:
 1. Click the **Fork** button in the upper right corner to create a copy under your account.
-2. Place custom configs under `/configs/25.12/` (e.g., `nanopi-r1s-h5.config`).
+2. Place custom configs under `/configs/24.10/` (e.g., `nanopi-r1s-h5.config`).
 3. Modify `diy-part1.sh` (executed before feeds update) and `diy-part2.sh` (executed before packaging) to inject packages.
 4. Once the workflow finishes successfully, your custom firmware will be available in **Artifacts** and **Releases** on your repository.
 

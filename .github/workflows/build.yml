@@ -46,7 +46,7 @@ jobs:
 
     - name: Download and unpack Image Builder
       run: |
-        VERSION="25.12.0"
+        VERSION="24.10.6"
         IB_URL="https://downloads.immortalwrt.org/releases/${VERSION}/targets/${{ matrix.target }}/${{ matrix.subtarget }}/immortalwrt-imagebuilder-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}.Linux-x86_64.tar.zst"
         echo "Downloading Image Builder from $IB_URL"
         wget -q "$IB_URL" -O imagebuilder.tar.zst
@@ -153,11 +153,11 @@ jobs:
       run: |
         DEVICE_SUFFIX="_${{ matrix.device }}"
         FILE_DATE="_$(date +"%Y%m%d%H%M")"
-        RELEASE_TAG="ImmortalWrt-openwrt-25.12${DEVICE_SUFFIX}${FILE_DATE}"
+        RELEASE_TAG="ImmortalWrt-openwrt-24.10${DEVICE_SUFFIX}${FILE_DATE}"
         echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
         touch release.txt
         echo "Build triggered by: ${{ github.event_name }}" >> release.txt
-        echo "ImmortalWrt Branch: 25.12.0" >> release.txt
+        echo "ImmortalWrt Branch: 24.10.6" >> release.txt
         echo "Device: ${{ matrix.device }}" >> release.txt
         echo "Build Date: $(date)" >> release.txt
         echo "status=success" >> $GITHUB_OUTPUT
