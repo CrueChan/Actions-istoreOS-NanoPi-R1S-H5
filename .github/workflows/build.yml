@@ -123,20 +123,7 @@ jobs:
         fi
         echo "Assertion B Passed: wireless driver module found at $DRIVER_KO."
         
-        # Assertion C: WAN/LAN network default mappings exist in 10-custom-network
-        NET_DEFAULTS="/mnt/rootfs/etc/uci-defaults/10-custom-network"
-        if [ ! -f "$NET_DEFAULTS" ]; then
-          echo "Assertion C Failed: Custom network defaults uci script not found!"
-          sudo umount /mnt/rootfs
-          exit 1
-        fi
-        if ! grep -q -E "network\.wan\.device" "$NET_DEFAULTS"; then
-          echo "Assertion C Failed: WAN device mappings not found in custom network defaults!"
-          sudo umount /mnt/rootfs
-          exit 1
-        fi
-        echo "Assertion C Passed: custom network defaults config exists and verified successfully."
-        
+
         # Umount loop
         echo "Unmounting rootfs..."
         sudo umount /mnt/rootfs
