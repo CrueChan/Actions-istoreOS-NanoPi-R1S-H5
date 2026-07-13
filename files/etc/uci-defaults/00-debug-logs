@@ -1,0 +1,46 @@
+#!/bin/sh
+# Background debug log collector for NanoPi R1S H5
+# Writes dmesg, logread, and network status to the FAT boot partition
+
+(
+    # Wait for network interfaces and services to attempt initialization
+    sleep 45
+
+    # Create mount point and mount the first partition (FAT boot partition)
+    mkdir -p /tmp/boot_debug
+    if mount /dev/mmcblk0p1 /tmp/boot_debug; then
+        LOG_FILE="/tmp/boot_debug/boot_debug.log"
+        
+        echo "==========================================" > "$LOG_FILE"
+        echo "        NANOPI R1S H5 BOOT DEBUG LOG      " >> "$LOG_FILE"
+        echo "==========================================" >> "$LOG_FILE"
+        
+        echo -e "\n=== DATE AND RUNTIME ===" >> "$LOG_FILE"
+        uptime >> "$LOG_FILE"
+        
+        echo -e "\n=== FREE MEMORY ===" >> "$LOG_FILE"
+        free -m >> "$LOG_FILE"
+        
+        echo -e "\n=== NETWORK INTERFACES ===" >> "$LOG_FILE"
+        ip address show >> "$LOG_FILE"
+        ip link show >> "$LOG_FILE"
+        
+        echo -e "\n=== ROUTING TABLE ===" >> "$LOG_FILE"
+        ip route show >> "$LOG_FILE"
+        
+        echo -e "\n=== PROCESS LIST ===" >> "$LOG_FILE"
+        ps -w >> "$LOG_FILE"
+        
+        echo -e "\n=== DMESG LOG ===" >> "$LOG_FILE"
+        dmesg >> "$LOG_FILE"
+        
+        echo -e "\n=== SYSTEM LOG (LOGREAD) ===" >> "$LOG_FILE"
+        logread >> "$LOG_FILE"
+        
+        # Flush to card and clean up
+        sync
+        umount /tmp/boot_debug
+    fi
+) &
+
+exit 0
