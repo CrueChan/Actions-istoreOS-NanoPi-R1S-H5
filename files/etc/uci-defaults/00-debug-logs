@@ -1,42 +1,55 @@
 #!/bin/sh
 # Background debug log collector for NanoPi R1S H5
-# Writes dmesg, logread, and network status to the FAT boot partition
+# Writes dmesg, logread, and network status to the FAT boot partition and rootfs backup
 
 (
     # Wait for network interfaces and services to attempt initialization
     sleep 45
 
+    # Define log content generator
+    generate_log() {
+        echo "=========================================="
+        echo "        NANOPI R1S H5 BOOT DEBUG LOG      "
+        echo "=========================================="
+        
+        echo -e "\n=== DATE AND RUNTIME ==="
+        uptime
+        
+        echo -e "\n=== FREE MEMORY ==="
+        free -m
+        
+        echo -e "\n=== NETWORK INTERFACES ==="
+        ip address show
+        ip link show
+        
+        echo -e "\n=== ROUTING TABLE ==="
+        ip route show
+        
+        echo -e "\n=== PROCESS LIST ==="
+        ps -w
+        
+        echo -e "\n=== DMESG LOG ==="
+        dmesg
+        
+        echo -e "\n=== SYSTEM LOG (LOGREAD) ==="
+        logread
+    }
+
+    # Backup log on rootfs (ext4 overlay partition, accessible via Linux reader)
+    mkdir -p /root
+    generate_log > /root/boot_debug.log
+    sync
+
+    # Try loading FAT filesystem kernel modules just in case they aren't loaded
+    modprobe fat 2>/dev/null
+    modprobe vfat 2>/dev/null
+    modprobe nls_cp437 2>/dev/null
+    modprobe nls_iso8859-1 2>/dev/null
+
     # Create mount point and mount the first partition (FAT boot partition)
     mkdir -p /tmp/boot_debug
-    if mount /dev/mmcblk0p1 /tmp/boot_debug; then
-        LOG_FILE="/tmp/boot_debug/boot_debug.log"
-        
-        echo "==========================================" > "$LOG_FILE"
-        echo "        NANOPI R1S H5 BOOT DEBUG LOG      " >> "$LOG_FILE"
-        echo "==========================================" >> "$LOG_FILE"
-        
-        echo -e "\n=== DATE AND RUNTIME ===" >> "$LOG_FILE"
-        uptime >> "$LOG_FILE"
-        
-        echo -e "\n=== FREE MEMORY ===" >> "$LOG_FILE"
-        free -m >> "$LOG_FILE"
-        
-        echo -e "\n=== NETWORK INTERFACES ===" >> "$LOG_FILE"
-        ip address show >> "$LOG_FILE"
-        ip link show >> "$LOG_FILE"
-        
-        echo -e "\n=== ROUTING TABLE ===" >> "$LOG_FILE"
-        ip route show >> "$LOG_FILE"
-        
-        echo -e "\n=== PROCESS LIST ===" >> "$LOG_FILE"
-        ps -w >> "$LOG_FILE"
-        
-        echo -e "\n=== DMESG LOG ===" >> "$LOG_FILE"
-        dmesg >> "$LOG_FILE"
-        
-        echo -e "\n=== SYSTEM LOG (LOGREAD) ===" >> "$LOG_FILE"
-        logread >> "$LOG_FILE"
-        
+    if mount -t vfat /dev/mmcblk0p1 /tmp/boot_debug 2>/dev/null || mount /dev/mmcblk0p1 /tmp/boot_debug 2>/dev/null; then
+        generate_log > /tmp/boot_debug/boot_debug.log
         # Flush to card and clean up
         sync
         umount /tmp/boot_debug

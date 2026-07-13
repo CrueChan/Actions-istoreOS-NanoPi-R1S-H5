@@ -29,7 +29,7 @@ jobs:
             target: sunxi
             subtarget: cortexa53
             profile: friendlyarm_nanopi-r1s-h5
-            packages: "luci-theme-argon luci-app-argon-config luci-app-diskman luci-app-ddns luci-app-upnp luci-app-wol luci-app-passwall xray-core sing-box kmod-rtl8189es"
+            packages: "luci-theme-argon luci-app-argon-config luci-app-diskman luci-app-ddns luci-app-upnp luci-app-wol luci-app-passwall xray-core sing-box"
 
     steps:
     - name: Checkout
@@ -114,14 +114,7 @@ jobs:
         fi
         echo "Assertion A Passed: Smart resize script exists."
         
-        # Assertion B: Wireless Driver module exists
-        DRIVER_KO=$(find /mnt/rootfs/lib/modules/ -name "rtl8189es.ko" | head -n 1)
-        if [ -z "$DRIVER_KO" ]; then
-          echo "Assertion B Failed: rtl8189es.ko wireless driver not found in rootfs!"
-          sudo umount /mnt/rootfs
-          exit 1
-        fi
-        echo "Assertion B Passed: wireless driver module found at $DRIVER_KO."
+
         
 
         # Umount loop
