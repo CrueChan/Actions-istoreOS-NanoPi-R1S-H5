@@ -191,10 +191,13 @@ log_msg "Resizing ext4 filesystem on $partition_dev..."
 if resize2fs "$partition_dev"; then
     log_msg "Smart resize completed successfully! Cleaning up and rebooting..."
     rm -f /etc/uci-defaults/99-smart-resize
-    reboot
+    sync
+    (sleep 5 && reboot) &
+    exit 0
 else
     log_msg "Error: Failed to resize filesystem using resize2fs."
     # Clean up script anyway to prevent potential boot/reboot loop
     rm -f /etc/uci-defaults/99-smart-resize
+    sync
     exit 0
 fi
