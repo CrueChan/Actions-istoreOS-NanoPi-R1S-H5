@@ -60,17 +60,18 @@ jobs:
         echo "Downloading SDK from $SDK_URL"
         wget -q "$SDK_URL" -O sdk.tar.zst
         tar -xf sdk.tar.zst
-        mv immortalwrt-sdk-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}_gcc-13.3.0_musl.Linux-x86_64 sdk
+        mv immortalwrt-sdk-* sdk
         
         cd sdk
         # Add sbwml's wireless feed
         echo "src-git wireless https://github.com/sbwml/openwrt-wireless-drivers" >> feeds.conf.default
-        ./scripts/feeds update -a
+        ./scripts/feeds update wireless
         ./scripts/feeds install kmod-rtl8189es
         
-        # Configure and compile
+        # Configure and compile (explicitly set package as module)
+        echo "CONFIG_PACKAGE_kmod-rtl8189es=m" >> .config
         make defconfig
-        make package/kmod-rtl8189es/compile -j$(nproc)
+        make package/kmod-rtl8189es/compile -j1 V=s
         
         # Copy compiled package to custom-packages directory
         mkdir -p ${{ github.workspace }}/custom-packages
