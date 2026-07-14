@@ -29,7 +29,7 @@ jobs:
             target: sunxi
             subtarget: cortexa53
             profile: friendlyarm_nanopi-r1s-h5
-            packages: "luci-theme-argon luci-app-argon-config luci-app-diskman luci-app-ddns luci-app-upnp luci-app-wol luci-app-passwall xray-core sing-box"
+            packages: "luci-theme-argon luci-app-argon-config luci-app-diskman luci-app-ddns luci-app-upnp luci-app-wol luci-app-passwall xray-core sing-box kmod-rtl8189es"
 
     steps:
     - name: Checkout
@@ -52,6 +52,42 @@ jobs:
         wget -q "$IB_URL" -O imagebuilder.tar.zst
         tar -xf imagebuilder.tar.zst
         mv immortalwrt-imagebuilder-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}.Linux-x86_64 imagebuilder
+
+    - name: Compile custom wireless driver via SDK
+      run: |
+        VERSION="24.10.6"
+        SDK_URL="https://downloads.immortalwrt.org/releases/${VERSION}/targets/${{ matrix.target }}/${{ matrix.subtarget }}/immortalwrt-sdk-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
+        echo "Downloading SDK from $SDK_URL"
+        wget -q "$SDK_URL" -O sdk.tar.zst
+        tar -xf sdk.tar.zst
+        mv immortalwrt-sdk-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}_gcc-13.3.0_musl.Linux-x86_64 sdk
+        
+        cd sdk
+        # Add sbwml's wireless feed
+        echo "src-git wireless https://github.com/sbwml/openwrt-wireless-drivers" >> feeds.conf.default
+        ./scripts/feeds update -a
+        ./scripts/feeds install kmod-rtl8189es
+        
+        # Configure and compile
+        make defconfig
+        make package/kmod-rtl8189es/compile -j$(nproc)
+        
+        # Copy compiled package to custom-packages directory
+        mkdir -p ${{ github.workspace }}/custom-packages
+        find bin/ -name "kmod-rtl8189es*.ipk" -exec cp {} ${{ github.workspace }}/custom-packages/ \;
+        
+        cd ${{ github.workspace }}
+        # Generate package index for the custom feed
+        ./imagebuilder/scripts/ipkg-make-index.sh custom-packages > custom-packages/Packages
+        gzip -9c custom-packages/Packages > custom-packages/Packages.gz
+        
+        # Prepend custom repository to Image Builder's repositories.conf
+        sed -i '1i src custom file://${{ github.workspace }}/custom-packages' imagebuilder/repositories.conf
+        
+        # Disable package signature check
+        if [ -f imagebuilder/etc/opkg.conf ]; then
+          sed -i 's/option check_signature/# option check_signature/g' imagebuilder/etc/opkg.conf
+        fi
 
     - name: Build firmware image
       run: |
@@ -113,6 +149,15 @@ jobs:
           exit 1
         fi
         echo "Assertion A Passed: Smart resize script exists."
+        
+        # Assertion B: Wireless Driver module exists
+        DRIVER_KO=$(find /mnt/rootfs/lib/modules/ -name "rtl8189es.ko" | head -n 1)
+        if [ -z "$DRIVER_KO" ]; then
+          echo "Assertion B Failed: rtl8189es.ko wireless driver not found in rootfs!"
+          sudo umount /mnt/rootfs
+          exit 1
+        fi
+        echo "Assertion B Passed: wireless driver module found at $DRIVER_KO."
         
 
         
