@@ -29,7 +29,7 @@ jobs:
             target: sunxi
             subtarget: cortexa53
             profile: friendlyarm_nanopi-r1s-h5
-            packages: "luci-theme-argon luci-app-argon-config luci-app-diskman luci-app-ddns luci-app-upnp luci-app-wol luci-app-passwall xray-core sing-box kmod-rtl8189es luci-app-store luci-app-quickstart luci-compat luci-i18n-base-de luci-i18n-base-es luci-i18n-base-fr luci-i18n-base-it luci-i18n-base-ru luci-i18n-base-ja luci-i18n-base-ko luci-i18n-base-zh-tw"
+            packages: "luci-theme-argon luci-app-argon-config luci-app-diskman luci-app-ddns luci-app-upnp luci-app-wol luci-app-passwall xray-core sing-box kmod-rtl8189es luci-app-store luci-app-quickstart luci-compat luci-app-uninstall luci-i18n-base-de luci-i18n-base-es luci-i18n-base-fr luci-i18n-base-it luci-i18n-base-ru luci-i18n-base-ja luci-i18n-base-ko luci-i18n-base-zh-tw"
 
     steps:
     - name: Checkout
@@ -60,6 +60,27 @@ jobs:
         if [ -d files ]; then
           cp -r files/* imagebuilder/files/
         fi
+        
+        # Download and extract VUM Advanced Uninstall plugin
+        mkdir -p ${{ github.workspace }}/custom-packages
+        wget -q https://plugin.vumstar.com/download/luci-app-uninstall.run
+        sh luci-app-uninstall.run --target /tmp/vum_uninstall --noexec
+        cp /tmp/vum_uninstall/luci-app-uninstall_*.ipk ${{ github.workspace }}/custom-packages/
+        rm -rf /tmp/vum_uninstall luci-app-uninstall.run
+        
+        # Create a wrapper for sha256 to output ONLY the hash (avoiding slashes that break sed)
+        sudo echo '#!/bin/sh' | sudo tee /usr/local/bin/sha256 > /dev/null
+        sudo echo 'sha256sum "$@" | cut -d" " -f1' | sudo tee -a /usr/local/bin/sha256 > /dev/null
+        sudo chmod +x /usr/local/bin/sha256
+        
+        # Generate package index inside the custom feed directory
+        cd ${{ github.workspace }}/custom-packages
+        ../imagebuilder/scripts/ipkg-make-index.sh . > Packages
+        gzip -9c Packages > Packages.gz
+        
+        cd ${{ github.workspace }}
+        # Add local custom repository to Image Builder's repositories.conf
+        echo "src custom file://${{ github.workspace }}/custom-packages" >> imagebuilder/repositories.conf
         
         # Add LinkEase iStore repository to Image Builder's repositories.conf
         echo "src/gz istore_all https://istore.istoreos.com/repo/all/store" >> imagebuilder/repositories.conf

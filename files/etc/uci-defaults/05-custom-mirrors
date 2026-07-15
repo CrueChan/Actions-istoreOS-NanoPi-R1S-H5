@@ -1,0 +1,12 @@
+#!/bin/sh
+# Automatically switch package feeds to a reliable China mirror (USTC)
+
+FEEDS_FILE="/etc/opkg/distfeeds.conf"
+if [ -f "$FEEDS_FILE" ]; then
+    # Replace mirrors.vsean.net/openwrt with mirrors.ustc.edu.cn/immortalwrt
+    sed -i 's|mirrors.vsean.net/openwrt|mirrors.ustc.edu.cn/immortalwrt|g' "$FEEDS_FILE"
+    # Also replace any other generic mirrors if present
+    sed -i 's|downloads.immortalwrt.org|mirrors.ustc.edu.cn/immortalwrt|g' "$FEEDS_FILE"
+fi
+
+exit 0
