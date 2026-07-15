@@ -46,63 +46,12 @@ jobs:
 
     - name: Download and unpack Image Builder
       run: |
-        VERSION="24.10.6"
-        IB_URL="https://downloads.immortalwrt.org/releases/${VERSION}/targets/${{ matrix.target }}/${{ matrix.subtarget }}/immortalwrt-imagebuilder-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}.Linux-x86_64.tar.zst"
+        VERSION="23.05.7"
+        IB_URL="https://downloads.immortalwrt.org/releases/${VERSION}/targets/${{ matrix.target }}/${{ matrix.subtarget }}/immortalwrt-imagebuilder-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}.Linux-x86_64.tar.xz"
         echo "Downloading Image Builder from $IB_URL"
-        wget -q "$IB_URL" -O imagebuilder.tar.zst
-        tar -xf imagebuilder.tar.zst
+        wget -q "$IB_URL" -O imagebuilder.tar.xz
+        tar -xf imagebuilder.tar.xz
         mv immortalwrt-imagebuilder-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}.Linux-x86_64 imagebuilder
-
-    - name: Compile custom wireless driver via SDK
-      run: |
-        VERSION="24.10.6"
-        SDK_URL="https://downloads.immortalwrt.org/releases/${VERSION}/targets/${{ matrix.target }}/${{ matrix.subtarget }}/immortalwrt-sdk-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
-        echo "Downloading SDK from $SDK_URL"
-        wget -q "$SDK_URL" -O sdk.tar.zst
-        tar -xf sdk.tar.zst
-        mv immortalwrt-sdk-* sdk
-        
-        cd sdk
-        # Add sbwml's wireless feed
-        echo "src-git wireless https://github.com/sbwml/openwrt-wireless-drivers" >> feeds.conf.default
-        ./scripts/feeds update -a
-        ./scripts/feeds install kmod-rtl8189es
-        
-        # Configure and compile (explicitly set package as module)
-        echo "CONFIG_PACKAGE_kmod-rtl8189es=m" >> .config
-        make defconfig
-        
-        # Compile and output error log only if compilation fails to avoid log truncation
-        make package/rtl8189es/compile -j$(nproc) > /tmp/sdk_build.log 2>&1 || {
-            echo "==== SDK BUILD FAILED ===="
-            tail -n 100 /tmp/sdk_build.log
-            exit 1
-        }
-        
-        # Copy compiled package to custom-packages directory
-        mkdir -p ${{ github.workspace }}/custom-packages
-        find bin/ -name "kmod-rtl8189es*.ipk" -exec cp {} ${{ github.workspace }}/custom-packages/ \;
-        
-        # Create a wrapper for sha256 to output ONLY the hash (avoiding slashes that break sed)
-        sudo echo '#!/bin/sh' | sudo tee /usr/local/bin/sha256 > /dev/null
-        sudo echo 'sha256sum "$@" | cut -d" " -f1' | sudo tee -a /usr/local/bin/sha256 > /dev/null
-        sudo chmod +x /usr/local/bin/sha256
-
-        cd ${{ github.workspace }}/custom-packages
-        # Generate package index inside the custom feed directory
-        ../imagebuilder/scripts/ipkg-make-index.sh . > Packages
-        gzip -9c Packages > Packages.gz
-        
-        # Go back to workspace root
-        cd ${{ github.workspace }}
-        
-        # Prepend custom repository to Image Builder's repositories.conf
-        sed -i '1i src custom file://${{ github.workspace }}/custom-packages' imagebuilder/repositories.conf
-        
-        # Disable package signature check
-        if [ -f imagebuilder/etc/opkg.conf ]; then
-          sed -i 's/option check_signature/# option check_signature/g' imagebuilder/etc/opkg.conf
-        fi
 
     - name: Build firmware image
       run: |
@@ -165,10 +114,10 @@ jobs:
         fi
         echo "Assertion A Passed: Smart resize script exists."
         
-        # Assertion B: Wireless Driver module exists
-        DRIVER_KO=$(find /mnt/rootfs/lib/modules/ -name "rtl8189es.ko" | head -n 1)
+        # Assertion B: Wireless Driver module exists (match either 8189es.ko or rtl8189es.ko)
+        DRIVER_KO=$(find /mnt/rootfs/lib/modules/ -name "*8189es.ko" | head -n 1)
         if [ -z "$DRIVER_KO" ]; then
-          echo "Assertion B Failed: rtl8189es.ko wireless driver not found in rootfs!"
+          echo "Assertion B Failed: wireless driver module (*8189es.ko) not found in rootfs!"
           sudo umount /mnt/rootfs
           exit 1
         fi
@@ -193,7 +142,7 @@ jobs:
       run: |
         DEVICE_SUFFIX="_${{ matrix.device }}"
         FILE_DATE="_$(date +"%Y%m%d%H%M")"
-        RELEASE_TAG="ImmortalWrt-openwrt-24.10${DEVICE_SUFFIX}${FILE_DATE}"
+        RELEASE_TAG="ImmortalWrt-openwrt-23.05${DEVICE_SUFFIX}${FILE_DATE}"
         echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
         touch release.txt
         echo "Build triggered by: ${{ github.event_name }}" >> release.txt
