@@ -1,0 +1,48 @@
+#!/bin/sh
+# Custom settings for Hostname, Description, Notes, and Wi-Fi configuration
+
+# 1. Set Hostname, Description, and Notes
+uci set system.@system[0].hostname='R1S-H5'
+uci set system.@system[0].description='NanoPi R1S H5 Custom Router'
+uci set system.@system[0].notes='Stable Firmware compiled by Antigravity with Wi-Fi & iStoreOS features'
+uci commit system
+# Apply hostname change immediately to current session
+echo "R1S-H5" > /proc/sys/kernel/hostname
+
+# 2. Configure Wireless defaults (SSID, Password, and Enable radio0)
+if [ -f /etc/config/wireless ]; then
+    # Get the wireless interface MAC address from sysfs
+    raw_mac=$(cat /sys/class/net/wlan0/address 2>/dev/null | tr -d ':' | tr 'a-z' 'A-Z')
+    wlan_mac=$(echo "$raw_mac" | tr -d ' \t\r\n')
+    
+    if [ -n "$wlan_mac" ] && [ ${#wlan_mac} -ge 4 ]; then
+        mac_suffix=$(echo -n "$wlan_mac" | tail -c 4)
+    else
+        mac_suffix="H5"
+    fi
+    
+    ssid="FriendlyWrt-$mac_suffix"
+    
+    # Iterate and configure all wifi-iface sections to use our SSID and Password
+    idx=0
+    while true; do
+        sec_type=$(uci get wireless.@wifi-iface[$idx].device 2>/dev/null)
+        [ -z "$sec_type" ] && break
+        
+        uci set wireless.@wifi-iface[$idx].ssid="$ssid"
+        uci set wireless.@wifi-iface[$idx].encryption='psk2'
+        uci set wireless.@wifi-iface[$idx].key='password'
+        
+        idx=$((idx + 1))
+    done
+    
+    # Enable the radio0 interface so it starts up automatically
+    uci set wireless.radio0.disabled='0'
+    
+    uci commit wireless
+    
+    # Reload wifi config to apply changes
+    wifi reload
+fi
+
+exit 0
