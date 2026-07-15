@@ -79,11 +79,13 @@ jobs:
         gzip -9c Packages > Packages.gz
         
         cd ${{ github.workspace }}
-        # Add local custom repository to Image Builder's repositories.conf
-        echo "src custom file://${{ github.workspace }}/custom-packages" >> imagebuilder/repositories.conf
+        # Prepend local custom repository to Image Builder's repositories.conf (ensures priority)
+        sed -i '1i src custom file://${{ github.workspace }}/custom-packages' imagebuilder/repositories.conf
         
-        # Add LinkEase iStore repository to Image Builder's repositories.conf
-        echo "src/gz istore_all https://istore.istoreos.com/repo/all/store" >> imagebuilder/repositories.conf
+        # Add LinkEase iStore repositories to Image Builder's repositories.conf
+        echo "src/gz is_nas_luci https://istore.istoreos.com/repo/all/nas_luci" >> imagebuilder/repositories.conf
+        echo "src/gz is_store https://istore.istoreos.com/repo/all/store" >> imagebuilder/repositories.conf
+        echo "src/gz is_nas https://istore.istoreos.com/repo/aarch64_cortex-a53/nas" >> imagebuilder/repositories.conf
         
         # Disable package signature check
         if [ -f imagebuilder/etc/opkg.conf ]; then
