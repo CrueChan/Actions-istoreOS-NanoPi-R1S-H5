@@ -87,10 +87,17 @@ jobs:
         echo "src/gz is_store https://istore.istoreos.com/repo/all/store" >> imagebuilder/repositories.conf
         echo "src/gz is_nas https://istore.istoreos.com/repo/aarch64_cortex-a53/nas" >> imagebuilder/repositories.conf
         
-        # Disable package signature check
+        # Disable package signature check in both repositories.conf and etc/opkg.conf
+        if [ -f imagebuilder/repositories.conf ]; then
+          sed -i 's/option check_signature/# option check_signature/g' imagebuilder/repositories.conf
+        fi
         if [ -f imagebuilder/etc/opkg.conf ]; then
           sed -i 's/option check_signature/# option check_signature/g' imagebuilder/etc/opkg.conf
         fi
+        
+        # Download and trust LinkEase repository public key
+        mkdir -p imagebuilder/keys
+        wget -q https://istore.istoreos.com/repo/key-build.pub -O imagebuilder/keys/linkease.pub
         
         cd imagebuilder
         # Print info about supported profiles and packages to trace build configuration
