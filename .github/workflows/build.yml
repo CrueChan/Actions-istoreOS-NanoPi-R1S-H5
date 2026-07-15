@@ -71,7 +71,13 @@ jobs:
         # Configure and compile (explicitly set package as module)
         echo "CONFIG_PACKAGE_kmod-rtl8189es=m" >> .config
         make defconfig
-        make package/rtl8189es/compile -j1 V=s
+        
+        # Compile and output error log only if compilation fails to avoid log truncation
+        make package/rtl8189es/compile -j$(nproc) > /tmp/sdk_build.log 2>&1 || {
+            echo "==== SDK BUILD FAILED ===="
+            tail -n 100 /tmp/sdk_build.log
+            exit 1
+        }
         
         # Copy compiled package to custom-packages directory
         mkdir -p ${{ github.workspace }}/custom-packages
