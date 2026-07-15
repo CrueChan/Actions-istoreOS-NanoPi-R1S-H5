@@ -93,6 +93,9 @@ jobs:
         ../imagebuilder/scripts/ipkg-make-index.sh . > Packages
         gzip -9c Packages > Packages.gz
         
+        # Go back to workspace root
+        cd ${{ github.workspace }}
+        
         # Prepend custom repository to Image Builder's repositories.conf
         sed -i '1i src custom file://${{ github.workspace }}/custom-packages' imagebuilder/repositories.conf
         
