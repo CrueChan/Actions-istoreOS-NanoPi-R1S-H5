@@ -36,15 +36,15 @@ if [ -f /etc/config/wireless ]; then
         idx=$((idx + 1))
     done
     
-    # Force high-performance 2.4GHz parameters for radio0
+    # Force safe, low-power 2.4GHz parameters for radio0 to prevent voltage drops
     uci set wireless.radio0.hwmode='11g'
     uci set wireless.radio0.channel='11'
-    # Enable 20/40MHz coexistence on Channel 11 (extension channel is 7)
-    uci set wireless.radio0.htmode='HT40-'
+    # Lock to stable 20MHz bandwidth (reduces peak processor and RF power load)
+    uci set wireless.radio0.htmode='HT20'
     # Set Country Code to AU (Australia)
     uci set wireless.radio0.country='AU'
-    # Lock Transmit Power to maximum 20 dBm (100mW)
-    uci set wireless.radio0.txpower='20'
+    # Reduce Transmit Power to safe 15 dBm (~31mW) to prevent motherboard brownout
+    uci set wireless.radio0.txpower='15'
     
     # Enable the radio0 interface so it starts up automatically
     uci set wireless.radio0.disabled='0'
