@@ -84,10 +84,8 @@ jobs:
         find bin/ -name "kmod-rtl8189es*.ipk" -exec cp {} ${{ github.workspace }}/custom-packages/ \;
         
         # Create a wrapper for sha256 to output ONLY the hash (avoiding slashes that break sed)
-        sudo tee /usr/local/bin/sha256 << 'EOF'
-#!/bin/sh
-sha256sum "$@" | cut -d' ' -f1
-EOF
+        sudo echo '#!/bin/sh' | sudo tee /usr/local/bin/sha256 > /dev/null
+        sudo echo 'sha256sum "$@" | cut -d" " -f1' | sudo tee -a /usr/local/bin/sha256 > /dev/null
         sudo chmod +x /usr/local/bin/sha256
 
         cd ${{ github.workspace }}/custom-packages
