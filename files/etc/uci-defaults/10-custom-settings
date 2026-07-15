@@ -3,8 +3,8 @@
 
 # 1. Set Hostname, Description, and Notes
 uci set system.@system[0].hostname='R1S-H5'
-uci set system.@system[0].description='NanoPi R1S H5 Custom Router'
-uci set system.@system[0].notes='Stable Firmware compiled by Antigravity with Wi-Fi & iStoreOS features'
+uci set system.@system[0].description='NanoPi R1S H5 Custom Router (by CrueChan)'
+uci set system.@system[0].notes='Compiled on BUILD_DATE by CrueChan (ImmortalWrt 23.05.7, Kernel 5.15, Stable Release)'
 uci commit system
 # Apply hostname change immediately to current session
 echo "R1S-H5" > /proc/sys/kernel/hostname
@@ -35,6 +35,16 @@ if [ -f /etc/config/wireless ]; then
         
         idx=$((idx + 1))
     done
+    
+    # Force high-performance 2.4GHz parameters for radio0
+    uci set wireless.radio0.hwmode='11g'
+    uci set wireless.radio0.channel='11'
+    # Enable 20/40MHz coexistence on Channel 11 (extension channel is 7)
+    uci set wireless.radio0.htmode='HT40-'
+    # Set Country Code to AU (Australia)
+    uci set wireless.radio0.country='AU'
+    # Lock Transmit Power to maximum 20 dBm (100mW)
+    uci set wireless.radio0.txpower='20'
     
     # Enable the radio0 interface so it starts up automatically
     uci set wireless.radio0.disabled='0'
