@@ -9,7 +9,22 @@ uci commit system
 # Apply hostname change immediately to current session
 echo "R1S-H5" > /proc/sys/kernel/hostname
 
-# 2. Configure Wireless defaults (SSID, Password, and keep disabled by default on boot)
+# 2. Set Default LAN IP to 192.168.2.1
+uci set network.lan.ipaddr='192.168.2.1'
+uci commit network
+
+# 3. Set Default Root Password to 'password'
+if [ -x /usr/sbin/chpasswd ]; then
+    echo "root:password" | chpasswd
+elif [ -x /usr/bin/chpasswd ]; then
+    echo "root:password" | chpasswd
+else
+    # Fallback to interactive input redirection for passwd command
+    (echo "password"; sleep 1; echo "password") | passwd root
+fi
+
+
+# 4. Configure Wireless defaults (SSID, Password, and keep disabled by default on boot)
 # On first boot, /etc/config/wireless does not exist yet. We must trigger wifi detect to generate it first,
 # so that we can pre-configure it and set disabled='1' BEFORE netifd attempts to bring it up.
 if [ ! -f /etc/config/wireless ]; then
