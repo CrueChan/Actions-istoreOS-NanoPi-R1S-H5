@@ -137,6 +137,44 @@ jobs:
         fi
         echo "Assertion B Passed: wireless driver module found at $DRIVER_KO."
         
+        # Assertion C: /etc/config/wireless template file exists in firmware
+        WIRELESS_CONFIG="/mnt/rootfs/etc/config/wireless"
+        echo "=== Assertion C: Checking /etc/config/wireless template ==="
+        if [ ! -f "$WIRELESS_CONFIG" ]; then
+          echo "Assertion C FAILED: /etc/config/wireless does NOT exist in firmware!"
+          sudo umount /mnt/rootfs
+          exit 1
+        fi
+        echo "Assertion C Passed: /etc/config/wireless exists."
+        echo "--- wireless config content ---"
+        sudo cat "$WIRELESS_CONFIG"
+        
+        # Assertion D: wpad-mini hostapd binary exists
+        HOSTAPD_BIN=$(find /mnt/rootfs/usr/sbin/ -name "hostapd" -o -name "wpad" 2>/dev/null | head -n 1)
+        echo "=== Assertion D: Checking for wpad/hostapd binary ==="
+        if [ -z "$HOSTAPD_BIN" ]; then
+          echo "Assertion D FAILED: wpad or hostapd binary not found! AP mode will not work."
+          sudo umount /mnt/rootfs
+          exit 1
+        fi
+        echo "Assertion D Passed: AP daemon binary found at $HOSTAPD_BIN."
+        
+        # Assertion E: modules autoload config exists for the driver
+        MOD_AUTOLOAD=$(find /mnt/rootfs/etc/modules.d/ -name "*8189es*" 2>/dev/null | head -n 1)
+        echo "=== Assertion E: Checking modules autoload config ==="
+        if [ -z "$MOD_AUTOLOAD" ]; then
+          echo "WARNING: No autoload entry for 8189es found in /etc/modules.d/!"
+          echo "Modules.d contents:"
+          sudo ls /mnt/rootfs/etc/modules.d/
+        else
+          echo "Assertion E Passed: Autoload entry found at $MOD_AUTOLOAD."
+          sudo cat "$MOD_AUTOLOAD"
+        fi
+        
+        # Print 10-custom-settings to verify the script embedded correctly
+        echo "=== uci-defaults/10-custom-settings content ==="
+        sudo cat /mnt/rootfs/etc/uci-defaults/10-custom-settings || echo "(file not found)"
+        
         # Umount loop
         echo "Unmounting rootfs..."
         sudo umount /mnt/rootfs
