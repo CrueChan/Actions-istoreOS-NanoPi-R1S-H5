@@ -1,6 +1,5 @@
 config wifi-device 'radio0'
 	option type 'mac80211'
-	option path 'platform/soc/1c10000.mmc/mmc_host/mmc1/mmc1:0001/mmc1:0001:1'
 	option hwmode '11g'
 	option channel '11'
 	option htmode 'HT20'
