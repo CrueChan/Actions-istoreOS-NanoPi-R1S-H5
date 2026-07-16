@@ -82,6 +82,31 @@ For the workflow to successfully write environment variables, release tags, and 
 5. (Recommended) Check **Allow GitHub Actions to create and approve pull requests**.
 6. Click **Save**.
 
+
+---
+
+## ⚙️ Default System Info & Version Comparison
+
+### 1. Default Connection Parameters
+* **Default IP Address**: `192.168.2.1`
+* **Default Username**: `root`
+* **Default Password**: `password`
+* **Ethernet Ports Mapping**:
+  * **WAN**: `eth0` (connected to external modem/internet)
+  * **LAN**: `eth1` (connected to local switch/devices)
+* **UPnP Service**: **Enabled by default** to facilitate automated port mapping for gaming and P2P clients.
+
+### 2. Firmware Version Comparison (Pros & Cons)
+
+| Version | Base System & Kernel | Wi-Fi Support Status | Pros | Cons |
+| :--- | :--- | :--- | :--- | :--- |
+| **ImmortalWrt 23.05** | Base: 23.05.7<br>Kernel: `5.15` | **Client/Scan Mode Only**<br>(Default AP disabled on boot)<br>Supports scanning SSIDs and connecting to upstream Wi-Fi. | • Modern kernel and active package feeds.<br>• Native iStore App Store and flat dashboard.<br>• Full Passwall / Xray / sing-box support.<br>• High-speed USTC mirror pre-configured for packages. | • Onboard AP mode (RTL8189ES) triggers kernel panic and boot loop, so AP interface is kept disabled. |
+| **ImmortalWrt 21.02 (Legacy)** | Base: 21.02.7<br>Kernel: `5.4` | **Full AP & Client Support**<br>Stable onboard Access Point out of the box. | • 100% stable onboard Wi-Fi AP support without kernel crash.<br>• Very low memory and CPU overhead. | • Legacy kernel and older package feeds.<br>• Lacks modern App Store & some modern plugins.<br>• **USTC mirror has purged EOL 21.02 packages**; builds default to international feeds (slower updates in China). |
+
+> [!IMPORTANT]
+> **About 21.02 Package Feeds:**
+> Because the 21.02 release branch is EOL (End of Life), domestic Chinese mirrors like USTC have cleared 21.02 package repositories. The 21.02 build dynamically detects its system version and retains the official international source (`downloads.immortalwrt.org`) to guarantee package availability. Mainland China users may experience slower speeds when running `opkg update`.
+
 ---
 
 ## 🚀 Quick Start / How to Use

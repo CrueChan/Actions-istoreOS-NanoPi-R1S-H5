@@ -1,12 +1,18 @@
 #!/bin/sh
-# Automatically switch package feeds to a reliable China mirror (USTC)
+# Automatically switch package feeds to a reliable China mirror (USTC) for newer releases,
+# but keep the official international source for legacy 21.02 since mirrors might have purged old versions.
 
 FEEDS_FILE="/etc/opkg/distfeeds.conf"
 if [ -f "$FEEDS_FILE" ]; then
-    # Replace mirrors.vsean.net/openwrt with mirrors.ustc.edu.cn/immortalwrt
-    sed -i 's|mirrors.vsean.net/openwrt|mirrors.ustc.edu.cn/immortalwrt|g' "$FEEDS_FILE"
-    # Also replace any other generic mirrors if present
-    sed -i 's|downloads.immortalwrt.org|mirrors.ustc.edu.cn/immortalwrt|g' "$FEEDS_FILE"
+    # Check if this is legacy 21.02 by checking openwrt version
+    if grep -q "21.02" /etc/openwrt_release 2>/dev/null || grep -q "21.02" /etc/os-release 2>/dev/null; then
+        echo "Legacy 21.02 version detected. Keeping official international source to ensure package availability."
+    else
+        # Replace mirrors.vsean.net/openwrt with mirrors.ustc.edu.cn/immortalwrt
+        sed -i 's|mirrors.vsean.net/openwrt|mirrors.ustc.edu.cn/immortalwrt|g' "$FEEDS_FILE"
+        # Also replace any other generic mirrors if present
+        sed -i 's|downloads.immortalwrt.org|mirrors.ustc.edu.cn/immortalwrt|g' "$FEEDS_FILE"
+    fi
 fi
 
 exit 0
