@@ -67,8 +67,8 @@ for i in 1 2 3 4 5; do
 done
 
 # Resolve the exact sysfs path suffix of the wireless hardware dynamically
-DEV_PATH=$(readlink /sys/class/net/wlan0/device 2>/dev/null)
-PATH_SUFFIX=$(echo "$DEV_PATH" | sed 's|.*/devices/||')
+DEV_PATH=$(readlink -f /sys/class/net/wlan0/device 2>/dev/null)
+PATH_SUFFIX=$(echo "$DEV_PATH" | sed 's|^/sys/devices/||')
 
 if [ -n "$PATH_SUFFIX" ]; then
     uci set wireless.radio0.path="$PATH_SUFFIX"
