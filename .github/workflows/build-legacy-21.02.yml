@@ -58,70 +58,84 @@ jobs:
 
     - name: Extract kernel modules from matching .ipk packages
       run: |
-        # The kmod packages in the 21.02 repo (kmod-cfg80211, kmod-mac80211) use a backported
-        # wireless stack (5.15.92) that IS compatible with kernel 5.4.255 but the modules must
-        # be loaded in the correct order. We extract the .ko files and inject them directly
-        # into the firmware files overlay, bypassing opkg version checks.
         VERSION="21.02.7"
-        BASE="https://downloads.immortalwrt.org/releases/${VERSION}/targets/${{ matrix.target }}/${{ matrix.subtarget }}/packages"
         ARCH="aarch64_cortex-a53"
-        
-        # Create the modules directory in the files overlay
-        # We need to find the exact kernel version string at build time
-        # The kernel in 21.02.7 sunxi is 5.4.255
         KVER="5.4.255"
-        MODULES_DIR="imagebuilder/files/lib/modules/${KVER}"
-        mkdir -p "$MODULES_DIR"
-        MODULES_D="imagebuilder/files/etc/modules.d"
-        mkdir -p "$MODULES_D"
-        
-        extract_ko_from_ipk() {
-          local pkg="$1"
-          local url="${BASE}/${pkg}"
-          echo "Downloading: $url"
-          wget -q "$url" -O /tmp/pkg.ipk
-          # ipk is an ar archive containing data.tar.gz
-          cd /tmp && ar x pkg.ipk data.tar.gz 2>/dev/null || ar x pkg.ipk
-          tar -xzf /tmp/data.tar.gz -C /tmp/extracted/ 2>/dev/null || true
-          cd -
+        BASE="https://downloads.immortalwrt.org/releases/${VERSION}/targets/${{ matrix.target }}/${{ matrix.subtarget }}/packages"
+
+        MODULES_DIR="${{ github.workspace }}/imagebuilder/files/lib/modules/${KVER}"
+        MODULES_D="${{ github.workspace }}/imagebuilder/files/etc/modules.d"
+        mkdir -p "$MODULES_DIR" "$MODULES_D" /tmp/ipk_extract
+
+        # Robustly extract .ko files from an .ipk (ar archive) using Python.
+        # wget --fail ensures HTTP errors are caught; + is encoded as %2B in URLs.
+        extract_ko() {
+          local pkg_encoded="$1"
+          local label="$2"
+          local url="${BASE}/${pkg_encoded}"
+          local tmp
+          tmp=$(mktemp -d)
+          echo "=== Downloading ${label}"
+          echo "    URL: ${url}"
+          if ! wget --fail -q "$url" -O "${tmp}/pkg.ipk"; then
+            echo "ERROR: Download failed for ${label}"
+            rm -rf "$tmp"
+            return 1
+          fi
+          local sz
+          sz=$(wc -c < "${tmp}/pkg.ipk")
+          echo "    Downloaded ${sz} bytes. Parsing ar archive..."
+          python3 - "${tmp}/pkg.ipk" /tmp/ipk_extract << 'PYEOF'
+import sys, os, tarfile, io
+ipk_path, extract_dir = sys.argv[1], sys.argv[2]
+os.makedirs(extract_dir, exist_ok=True)
+with open(ipk_path, 'rb') as f:
+    magic = f.read(8)
+    if magic != b'!<arch>\n':
+        print(f'ERROR: Not an ar archive. magic={magic!r}', file=sys.stderr)
+        sys.exit(1)
+    while True:
+        hdr = f.read(60)
+        if not hdr or len(hdr) < 60: break
+        name = hdr[0:16].decode('ascii', errors='replace').strip().rstrip('/')
+        size = int(hdr[48:58].decode('ascii').strip())
+        data = f.read(size)
+        if size % 2: f.read(1)
+        print(f'  member: {name!r}  size={size}')
+        if 'data.tar' in name:
+            buf = io.BytesIO(data)
+            try:
+                with tarfile.open(fileobj=buf) as tar:
+                    for m in tar.getmembers():
+                        if m.name.endswith('.ko'):
+                            m.name = os.path.basename(m.name)
+                            print(f'    extracting: {m.name}')
+                            tar.extract(m, extract_dir)
+            except Exception as e:
+                print(f'  tarfile error: {e}', file=sys.stderr)
+PYEOF
+          rm -rf "$tmp"
         }
-        
-        mkdir -p /tmp/extracted
-        
-        # Download and extract cfg80211
-        CFG80211_PKG=$(wget -qO- "${BASE}/" | grep -o 'kmod-cfg80211[^"]*\.ipk' | head -1)
-        if [ -n "$CFG80211_PKG" ]; then
-          extract_ko_from_ipk "$CFG80211_PKG"
-        fi
-        
-        # Download and extract mac80211
-        MAC80211_PKG=$(wget -qO- "${BASE}/" | grep -o 'kmod-mac80211_[^"]*\.ipk' | head -1)
-        if [ -n "$MAC80211_PKG" ]; then
-          extract_ko_from_ipk "$MAC80211_PKG"
-        fi
-        
-        # Download and extract rtl8189es
-        RTL_PKG=$(wget -qO- "${BASE}/" | grep -o 'kmod-rtl8189es[^"]*\.ipk' | head -1)
-        if [ -n "$RTL_PKG" ]; then
-          extract_ko_from_ipk "$RTL_PKG"
-        fi
-        
-        # Copy extracted .ko files to the firmware overlay
-        find /tmp/extracted -name "*.ko" | while read ko; do
-          echo "Installing: $ko"
+
+        # Exact filenames from the 21.02.7 sunxi/cortexa53 package repo.
+        # + is URL-encoded as %2B.
+        extract_ko "kmod-cfg80211_${KVER}%2B5.15.92-1-1_${ARCH}.ipk"            "kmod-cfg80211"
+        extract_ko "kmod-mac80211_${KVER}%2B5.15.92-1-1_${ARCH}.ipk"            "kmod-mac80211"
+        extract_ko "kmod-rtl8189es_${KVER}%2B2022-10-30-e58bd86c-3_${ARCH}.ipk" "kmod-rtl8189es"
+
+        echo "=== Copying .ko files into firmware overlay ==="
+        find /tmp/ipk_extract -name "*.ko" | while read ko; do
+          echo "  $(basename "$ko")"
           cp "$ko" "$MODULES_DIR/"
         done
-        
-        echo "=== Installed kernel modules ==="
         ls -la "$MODULES_DIR/"
-        
-        # Create explicit module load order entries
-        # cfg80211 must load before mac80211, mac80211 before rtl8189es
+
+        # Explicit load order: cfg80211 -> mac80211 -> rtl8189es
         echo "cfg80211" > "${MODULES_D}/50-cfg80211"
         echo "mac80211" > "${MODULES_D}/51-mac80211"
         echo "rtl8189es" > "${MODULES_D}/52-rtl8189es"
-        echo "=== Module autoload order entries ==="
-        ls -la "$MODULES_D/"
+        echo "=== modules.d load-order entries ==="
+        ls "${MODULES_D}/"
 
 
     - name: Build firmware image
