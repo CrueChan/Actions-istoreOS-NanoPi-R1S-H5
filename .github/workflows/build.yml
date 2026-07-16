@@ -60,6 +60,8 @@ jobs:
         if [ -d files ]; then
           cp -r files/* imagebuilder/files/
         fi
+        mkdir -p imagebuilder/files/etc
+        echo "23.05.7" > imagebuilder/files/etc/image_version
         
         # Replace BUILD_DATE placeholder with actual compilation time in China timezone (Asia/Shanghai)
         BUILD_TIME=$(TZ=Asia/Shanghai date +"%Y-%m-%d %H:%M")
