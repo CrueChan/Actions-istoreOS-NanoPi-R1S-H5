@@ -25,14 +25,8 @@ fi
 
 
 # 4. Configure Wireless defaults (SSID, Password, and keep disabled by default on boot)
-# On first boot, /etc/config/wireless does not exist yet. We must trigger wifi detect to generate it first,
-# so that we can pre-configure it and set disabled='1' BEFORE netifd attempts to bring it up.
-if [ ! -f /etc/config/wireless ]; then
-    if [ -x /sbin/wifi ]; then
-        /sbin/wifi detect > /etc/config/wireless
-    fi
-fi
-
+# Note: /etc/config/wireless is pre-packaged in the image to prevent early boot crashes
+# caused by hardware probing during 'wifi detect' stage.
 if [ -f /etc/config/wireless ]; then
     # Get the wireless interface MAC address from sysfs
     raw_mac=$(cat /sys/class/net/wlan0/address 2>/dev/null | tr -d ':' | tr 'a-z' 'A-Z')
