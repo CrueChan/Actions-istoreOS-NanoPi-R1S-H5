@@ -1,0 +1,170 @@
+#
+# ImmortalWrt Legacy 21.02 Image Builder Workflow for NanoPi R1S H5
+# Based on P3TERX/Actions-OpenWrt and maintained by CrueChan
+# Licensed under the MIT License
+#
+
+name: ImmortalWrt 21.02 Legacy Builder
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - device: nanopi-r1s-h5
+            target: sunxi
+            subtarget: cortexa53
+            profile: friendlyarm_nanopi-r1s-h5
+            packages: "luci-theme-argon luci-app-argon-config luci-app-diskman luci-app-ddns luci-app-upnp luci-app-wol luci-app-passwall xray-core kmod-rtl8189es wpad-mini luci-compat luci-app-samba4 luci-i18n-samba4-zh-cn luci-app-usb-printer luci-i18n-usb-printer-zh-cn luci-i18n-passwall-zh-cn luci-i18n-base-de luci-i18n-base-es luci-i18n-base-fr luci-i18n-base-it luci-i18n-base-ru luci-i18n-base-ja luci-i18n-base-ko luci-i18n-base-zh-tw"
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Initialization environment
+      run: |
+        sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/powershell /usr/share/swift
+        sudo docker image prune --all --force
+        sudo -E apt-get -qq update
+        sudo -E apt-get -qqy install wget curl tar zstd make parted
+        sudo -E apt-get -qq autoremove --purge
+        sudo -E apt-get -qq clean
+
+    - name: Download and unpack Image Builder
+      run: |
+        VERSION="21.02.7"
+        IB_URL="https://downloads.immortalwrt.org/releases/${VERSION}/targets/${{ matrix.target }}/${{ matrix.subtarget }}/immortalwrt-imagebuilder-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}.Linux-x86_64.tar.xz"
+        echo "Downloading Image Builder from $IB_URL"
+        wget -q "$IB_URL" -O imagebuilder.tar.xz
+        tar -xf imagebuilder.tar.xz
+        mv immortalwrt-imagebuilder-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}.Linux-x86_64 imagebuilder
+
+    - name: Build firmware image
+      run: |
+        # Prepare files directory for custom configurations
+        mkdir -p imagebuilder/files
+        if [ -d files ]; then
+          cp -r files/* imagebuilder/files/
+        fi
+        
+        # Replace BUILD_DATE placeholder with actual compilation time in China timezone (Asia/Shanghai)
+        BUILD_TIME=$(TZ=Asia/Shanghai date +"%Y-%m-%d %H:%M")
+        if [ -f imagebuilder/files/etc/uci-defaults/10-custom-settings ]; then
+          sed -i "s/BUILD_DATE/${BUILD_TIME}/g" imagebuilder/files/etc/uci-defaults/10-custom-settings
+        fi
+        
+        # Disable package signature check in both repositories.conf and etc/opkg.conf
+        if [ -f imagebuilder/repositories.conf ]; then
+          sed -i 's/option check_signature/# option check_signature/g' imagebuilder/repositories.conf
+        fi
+        if [ -f imagebuilder/etc/opkg.conf ]; then
+          sed -i 's/option check_signature/# option check_signature/g' imagebuilder/etc/opkg.conf
+        fi
+        
+        cd imagebuilder
+        # Print info about supported profiles and packages to trace build configuration
+        make info
+        
+        # Build image using official Image Builder
+        make image PROFILE="${{ matrix.profile }}" PACKAGES="${{ matrix.packages }}" FILES="files"
+        
+        # Copy compiled files to output directory
+        mkdir -p ${{ github.workspace }}/firmware_output
+        find bin/targets/${{ matrix.target }}/${{ matrix.subtarget }}/ -type f \( -name "*.img.gz" -o -name "*.bin" -o -name "*.manifest" -o -name "*.buildinfo" \) -exec cp {} ${{ github.workspace }}/firmware_output/ \;
+        echo "FIRMWARE_PATH=${{ github.workspace }}/firmware_output" >> $GITHUB_ENV
+
+    - name: Verify firmware image
+      run: |
+        echo "==== Starting Firmware Verification ===="
+        IMG_GZ=$(find ${{ env.FIRMWARE_PATH }} -name "*ext4-sdcard.img.gz" | head -n 1)
+        if [ -z "$IMG_GZ" ]; then
+          echo "Error: ext4-sdcard.img.gz not found!"
+          exit 1
+        fi
+        echo "Found firmware image: $IMG_GZ"
+        
+        # Uncompress image
+        gunzip -c "$IMG_GZ" > test.img
+        
+        # Calculate Rootfs partition (partition 2) offset
+        START_SECTOR=$(parted -s test.img unit s print | awk '/ 2 / {print $2}' | tr -d 's')
+        if [ -z "$START_SECTOR" ]; then
+          echo "Error: partition 2 not found!"
+          exit 1
+        fi
+        OFFSET=$((START_SECTOR * 512))
+        echo "Rootfs partition sector offset: $OFFSET bytes"
+        
+        # Create mount point
+        sudo mkdir -p /mnt/rootfs
+        
+        # Mount loop
+        echo "Mounting rootfs partition..."
+        sudo mount -o loop,offset=$OFFSET test.img /mnt/rootfs
+        
+        # Assertions
+        echo "Running static assertions..."
+        
+        # Assertion A: Smart resize script exists
+        RESIZE_SCRIPT="/mnt/rootfs/etc/uci-defaults/99-smart-resize"
+        if [ ! -f "$RESIZE_SCRIPT" ]; then
+          echo "Assertion A Failed: Smart resize script not found at $RESIZE_SCRIPT!"
+          sudo umount /mnt/rootfs
+          exit 1
+        fi
+        echo "Assertion A Passed: Smart resize script exists."
+        
+        # Assertion B: Wireless Driver module exists (match either 8189es.ko or rtl8189es.ko)
+        DRIVER_KO=$(find /mnt/rootfs/lib/modules/ -name "*8189es.ko" | head -n 1)
+        if [ -z "$DRIVER_KO" ]; then
+          echo "Assertion B Failed: wireless driver module (*8189es.ko) not found in rootfs!"
+          sudo umount /mnt/rootfs
+          exit 1
+        fi
+        echo "Assertion B Passed: wireless driver module found at $DRIVER_KO."
+        
+        # Umount loop
+        echo "Unmounting rootfs..."
+        sudo umount /mnt/rootfs
+        echo "==== Firmware Verification Passed Successfully! ===="
+
+    - name: Upload firmware to Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ImmortalWrt-Legacy-21.02-Firmware-${{ matrix.device }}
+        path: ${{ env.FIRMWARE_PATH }}/*
+
+    - name: Generate release tag
+      id: tag
+      run: |
+        DEVICE_SUFFIX="_${{ matrix.device }}"
+        FILE_DATE="_$(date +"%Y%m%d%H%M")"
+        RELEASE_TAG="ImmortalWrt-openwrt-21.02${DEVICE_SUFFIX}${FILE_DATE}"
+        echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+        touch release.txt
+        echo "Build triggered by: ${{ github.event_name }}" >> release.txt
+        echo "ImmortalWrt Branch: 21.02.7" >> release.txt
+        echo "Device: ${{ matrix.device }}" >> release.txt
+        echo "Build Date: $(date)" >> release.txt
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: Upload firmware to release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        body_path: release.txt
+        files: ${{ env.FIRMWARE_PATH }}/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
