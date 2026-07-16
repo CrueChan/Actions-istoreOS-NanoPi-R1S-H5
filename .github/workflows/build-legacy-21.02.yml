@@ -65,78 +65,24 @@ jobs:
 
         MODULES_DIR="${{ github.workspace }}/imagebuilder/files/lib/modules/${KVER}"
         MODULES_D="${{ github.workspace }}/imagebuilder/files/etc/modules.d"
-        mkdir -p "$MODULES_DIR" "$MODULES_D" /tmp/ipk_extract
+        mkdir -p "$MODULES_DIR" "$MODULES_D"
 
-        # Robustly extract .ko files from an .ipk (ar archive) using Python.
-        # wget --fail ensures HTTP errors are caught; + is encoded as %2B in URLs.
-        extract_ko() {
-          local pkg_encoded="$1"
-          local label="$2"
-          local url="${BASE}/${pkg_encoded}"
-          local tmp
-          tmp=$(mktemp -d)
-          echo "=== Downloading ${label}"
-          echo "    URL: ${url}"
-          if ! wget --fail -q "$url" -O "${tmp}/pkg.ipk"; then
-            echo "ERROR: Download failed for ${label}"
-            rm -rf "$tmp"
-            return 1
-          fi
-          local sz
-          sz=$(wc -c < "${tmp}/pkg.ipk")
-          echo "    Downloaded ${sz} bytes. Parsing ar archive..."
-          python3 - "${tmp}/pkg.ipk" /tmp/ipk_extract << 'PYEOF'
-import sys, os, tarfile, io
-ipk_path, extract_dir = sys.argv[1], sys.argv[2]
-os.makedirs(extract_dir, exist_ok=True)
-with open(ipk_path, 'rb') as f:
-    magic = f.read(8)
-    if magic != b'!<arch>\n':
-        print(f'ERROR: Not an ar archive. magic={magic!r}', file=sys.stderr)
-        sys.exit(1)
-    while True:
-        hdr = f.read(60)
-        if not hdr or len(hdr) < 60: break
-        name = hdr[0:16].decode('ascii', errors='replace').strip().rstrip('/')
-        size = int(hdr[48:58].decode('ascii').strip())
-        data = f.read(size)
-        if size % 2: f.read(1)
-        print(f'  member: {name!r}  size={size}')
-        if 'data.tar' in name:
-            buf = io.BytesIO(data)
-            try:
-                with tarfile.open(fileobj=buf) as tar:
-                    for m in tar.getmembers():
-                        if m.name.endswith('.ko'):
-                            m.name = os.path.basename(m.name)
-                            print(f'    extracting: {m.name}')
-                            tar.extract(m, extract_dir)
-            except Exception as e:
-                print(f'  tarfile error: {e}', file=sys.stderr)
-PYEOF
-          rm -rf "$tmp"
-        }
+        # Call the standalone Python script (no heredoc needed)
+        # + in version strings must be URL-encoded as %2B
+        python3 scripts/extract_ko_from_ipk.py "$BASE" "$MODULES_DIR" \
+          "kmod-cfg80211_${KVER}%2B5.15.92-1-1_${ARCH}.ipk" \
+          "kmod-mac80211_${KVER}%2B5.15.92-1-1_${ARCH}.ipk" \
+          "kmod-rtl8189es_${KVER}%2B2022-10-30-e58bd86c-3_${ARCH}.ipk"
 
-        # Exact filenames from the 21.02.7 sunxi/cortexa53 package repo.
-        # + is URL-encoded as %2B.
-        extract_ko "kmod-cfg80211_${KVER}%2B5.15.92-1-1_${ARCH}.ipk"            "kmod-cfg80211"
-        extract_ko "kmod-mac80211_${KVER}%2B5.15.92-1-1_${ARCH}.ipk"            "kmod-mac80211"
-        extract_ko "kmod-rtl8189es_${KVER}%2B2022-10-30-e58bd86c-3_${ARCH}.ipk" "kmod-rtl8189es"
-
-        echo "=== Copying .ko files into firmware overlay ==="
-        find /tmp/ipk_extract -name "*.ko" | while read ko; do
-          echo "  $(basename "$ko")"
-          cp "$ko" "$MODULES_DIR/"
-        done
+        echo "=== .ko files in overlay ==="
         ls -la "$MODULES_DIR/"
 
-        # Explicit load order: cfg80211 -> mac80211 -> rtl8189es
+        # Explicit autoload order: cfg80211 -> mac80211 -> rtl8189es
         echo "cfg80211" > "${MODULES_D}/50-cfg80211"
         echo "mac80211" > "${MODULES_D}/51-mac80211"
         echo "rtl8189es" > "${MODULES_D}/52-rtl8189es"
-        echo "=== modules.d load-order entries ==="
+        echo "=== modules.d load-order ==="
         ls "${MODULES_D}/"
-
 
     - name: Build firmware image
       run: |
