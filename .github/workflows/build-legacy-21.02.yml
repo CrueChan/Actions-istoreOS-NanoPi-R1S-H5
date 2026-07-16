@@ -27,7 +27,7 @@ jobs:
             target: sunxi
             subtarget: cortexa53
             profile: friendlyarm_nanopi-r1s-h5
-            packages: "luci-theme-argon luci-app-argon-config luci-app-diskman luci-app-ddns luci-app-upnp luci-app-wol luci-app-passwall xray-core kmod-rtl8189es wpad-mini -wpad-basic-openssl -wpad-basic-wolfssl -wpad-basic-mbedtls -wpad -wpa-supplicant -hostapd luci-compat luci-app-samba4 luci-i18n-samba4-zh-cn luci-app-usb-printer luci-i18n-usb-printer-zh-cn luci-i18n-passwall-zh-cn luci-i18n-base-de luci-i18n-base-es luci-i18n-base-fr luci-i18n-base-it luci-i18n-base-ru luci-i18n-base-ja luci-i18n-base-ko luci-i18n-base-zh-tw"
+            packages: "luci-theme-argon luci-app-argon-config luci-app-diskman luci-app-ddns luci-app-upnp luci-app-wol luci-app-passwall xray-core kmod-cfg80211 kmod-mac80211 kmod-rtl8189es wpad-mini -wpad-basic-openssl -wpad-basic-wolfssl -wpad-basic-mbedtls -wpad -wpa-supplicant -hostapd luci-compat luci-app-samba4 luci-i18n-samba4-zh-cn luci-app-usb-printer luci-i18n-usb-printer-zh-cn luci-i18n-passwall-zh-cn luci-i18n-base-de luci-i18n-base-es luci-i18n-base-fr luci-i18n-base-it luci-i18n-base-ru luci-i18n-base-ja luci-i18n-base-ko luci-i18n-base-zh-tw"
 
     steps:
     - name: Checkout
