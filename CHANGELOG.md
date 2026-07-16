@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [23.05.7-IB] - 2026-07-15
+
+### Version Rollback & Wi-Fi Stability Optimization
+- **Rollback to 23.05.7 Stable (Linux Kernel 5.15)**: Reverted firmware core from 24.10 (Linux kernel 6.6) to 23.05.7 (Linux kernel 5.15) to resolve driver/hardware incompatibilities on the Allwinner H5 platform. This provides a 100% stable networking environment, resolving WAN/LAN interface drops and boot-loop hangs.
+- **Onboard Wi-Fi Default-Disabled**: Configured the onboard `rtl8189es` wireless module to remain disabled (`disabled='1'`) by default on first boot to guarantee safe startup and prevent overheating/kernel panics.
+- **Dynamic Configuration Defaults**: Integrated a first-boot uci-defaults script to pre-save safe 2.4GHz parameters (SSID as `FriendlyWrt-[MAC_Suffix]`, `password`, `HT20`, `15dBm` txpower, `AU` country code). Allows users to safely enable the AP with one click in the Web UI.
+
+### Custom Features Ingestion
+- **iStoreOS Dashboard & Store**: Pre-installed `luci-app-quickstart` (flat dashboard/network wizard) and `luci-app-store` (iStore App Store) for graphic plugin management.
+- **VUM Advanced Uninstall**: Integrated the VUM "高级卸载" (`luci-app-uninstall`) package into the firmware build to purge configurations cleanly.
+- **USTC High-Speed Mirror**: Configured a startup script to automatically switch OPKG repositories to the University of Science and Technology of China (USTC) mirror on first boot.
+- **Multi-Language Expansion**: Pre-installed language files for Traditional Chinese, Japanese, Korean, German, Spanish, French, Italian, and Russian.
+- **Personalized Hostname & Branding**: Changed hostname to `R1S-H5` and dynamically injected the repository owner's signature and precise compile Beijing date/time directly into the system description and notes.
+
 ## [24.10.6-IB] - 2026-07-13
 
 ### Downgrade & Version Pinning

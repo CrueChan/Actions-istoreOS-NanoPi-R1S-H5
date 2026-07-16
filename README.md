@@ -4,18 +4,21 @@
 ![GitHub Stars](https://img.shields.io/github/stars/CrueChan/Actions-istoreOS-NanoPi-R1S-H5.svg?style=flat-square&label=Stars&logo=github)
 ![GitHub Forks](https://img.shields.io/github/forks/CrueChan/Actions-istoreOS-NanoPi-R1S-H5.svg?style=flat-square&label=Forks&logo=github)
 
-Automated GitHub Actions build workflow for **NanoPi R1S-H5** (64-bit Cortex-A53), pinned to **ImmortalWrt 24.10** stable branch (Linux kernel 6.1) to avoid H5 USB/LAN controller driver regressions.
+Automated GitHub Actions build workflow for **NanoPi R1S-H5** (64-bit Cortex-A53), pinned to **ImmortalWrt 23.05.7** stable release (Linux kernel 5.15) to achieve 100% stable LAN/WAN throughput and avoid Realtek SDIO Wi-Fi driver crashes in early boot.
 
 ---
 
 ## ✨ Features
 
-- ⚡ **Lightweight Image Builder Integration**: Transitioned from heavy toolchain cross-compilation to the official ImmortalWrt Image Builder. Condenses compilation time from 2.5 hours down to 4 minutes while retaining extreme stability.
-- 💾 **Smart Partition Resize**: Small initial firmware size for fast downloading and flashing, with an automated smart expansion system on the first boot.
-- 📶 **Onboard Wi-Fi Support**: Pre-integrated native SDIO wireless driver `kmod-rtl8189es` (supports ETV/FTV chips) to ensure out-of-the-box AP/Client mode availability.
-- 🛡️ **Static Verification Checks**: Incorporates a CI/CD assertion job that loop-mounts the compiled rootfs in the cloud to verify kernel modules, network port mapping, and partition expansion scripts before releasing.
+- ⚡ **Lightweight Image Builder Integration**: Transitioned to the official ImmortalWrt Image Builder. Condenses compilation time from 2.5 hours down to 4 minutes while retaining extreme stability.
+- 💾 **Smart Partition Resize**: Small initial firmware size for fast downloading and flashing, with an automated smart expansion system on the first boot (supports up to 2GB safe partition limit on TF cards > 2.2GB).
+- 📶 **Onboard Wi-Fi Safe Mode**: Onboard SDIO wireless driver `kmod-rtl8189es` is pre-integrated but safely disabled by default on boot to prevent kernel panics. The WPA/AP authentication suite `wpad-basic-openssl` is installed, allowing plug-and-play support for stable external USB Wi-Fi dongles.
+- 🛍️ **iStoreOS Interface & App Store**: Integrates the clean iStoreOS **QuickStart** dashboard, **NetworkGuide** setup wizard, and the official **iStore App Store** for easy GUI-based plugin installation.
+- 🧹 **VUM Advanced Uninstall**: Pre-integrates the VUM "高级卸载" (luci-app-uninstall) plugin to cleanly purge files and residual configs when deleting packages.
+- 🇨🇳 **USTC High-Speed Mirror**: Automatically switches default package feeds to the fast and reliable University of Science and Technology of China (USTC) mirror on first boot.
+- 🌐 **Multi-Language Support**: Supports English, Simplified Chinese, Traditional Chinese, Japanese, Korean, German, Spanish, French, Italian, and Russian.
+- 🛠️ **Static Verification Checks**: Incorporates a CI/CD assertion job that loop-mounts the compiled rootfs in the cloud to verify kernel modules, network port mapping, and partition expansion scripts before releasing.
 - 📦 **Automated Release Publishing**: Publishes compiled system images directly to GitHub Releases.
-- 🚀 **Monthly Cron / Manual Compilation**: Keeps up-to-date with upstream packages, security updates, and proxy cores automatically.
 
 ---
 
@@ -41,6 +44,9 @@ To optimize download sizes and protect the lifespan of your TF card, this projec
 ### Applications and Services
 | Package Name | Function | Description |
 | :--- | :--- | :--- |
+| `luci-app-store` | iStore App Store | Graphical interface to search, install, and manage plugins with one click |
+| `luci-app-quickstart` | QuickStart Dashboard | Elegant flat web dashboard and step-by-step Network Guide wizard |
+| `luci-app-uninstall` | VUM Advanced Uninstall | Cleanly purges third-party plugin residuals and config files |
 | `luci-app-passwall` | Proxy Client | Supports multiple protocols, running Xray/sing-box cores (H5 only) |
 | `luci-theme-argon` | Modern Theme | Elegant responsive interface for desktop & mobile devices |
 | `luci-app-argon-config`| Theme Configuration| Customize argon theme backgrounds, colors, and login logo |
@@ -51,7 +57,7 @@ To optimize download sizes and protect the lifespan of your TF card, this projec
 
 > [!NOTE]
 > **Upstream H3 Platform Support Status:**
-> The NanoPi R1S-H3 (32-bit Cortex-A7) platform is currently excluded from the default Image Builder matrix due to a lack of official stable target profiles in upstream ImmortalWrt 24.10 release branches. R1S-H5 configuration compiles and delivers the full set of applications out-of-the-box.
+> The NanoPi R1S-H3 (32-bit Cortex-A7) platform is currently excluded from the default Image Builder matrix due to a lack of official stable target profiles in upstream ImmortalWrt 23.05 release branches. R1S-H5 configuration compiles and delivers the full set of applications out-of-the-box.
 
 ---
 
@@ -91,8 +97,8 @@ Click the **Fork** button in the upper right corner to create a copy of this rep
 
 For users downloading pre-compiled system images directly from the **Releases** page:
 
-#### ⚡ Option A: Fresh Installation / First-time Flash (Required when migrating from iStoreOS)
-Since migrating to ImmortalWrt 24.10 involves kernel upgrade (Linux 5.x ➜ 6.1) and partition table structure variance, **do not attempt Web upgrade from legacy iStoreOS**. A clean flashing is required:
+#### ⚡ Option A: Fresh Installation / First-time Flash (Required when migrating from other firmwares)
+Since migrating to ImmortalWrt 23.05 involves kernel change and partition table structure variance, **do not attempt Web upgrade from legacy iStoreOS**. A clean flashing is required:
 1. Download `*-squashfs-sdcard.img.gz` (recommended for recovery reset) or `*-ext4-sdcard.img.gz` from the latest Release.
 2. Uncompress the `.gz` file locally to retrieve the raw `.img` firmware file.
 3. Insert your TF (SD) card into your computer.
@@ -100,7 +106,7 @@ Since migrating to ImmortalWrt 24.10 involves kernel upgrade (Linux 5.x ➜ 6.1)
 5. Plug the card back into your NanoPi R1S-H5 and power it on.
 
 #### 🔄 Option B: Daily Web Upgrades (For subsequent upgrades)
-Once you are already running this project's ImmortalWrt 24.10 system:
+Once you are already running this project's ImmortalWrt 23.05 system:
 1. Download the latest `*-sdcard.img.gz` file from the Release (Do **not** uncompress it).
 2. Navigate to your router Web GUI under **System** ➜ **Backup/Flash Firmware**.
 3. In the **Flash new firmware image** section, upload the `*-sdcard.img.gz` file directly.
