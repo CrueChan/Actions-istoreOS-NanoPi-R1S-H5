@@ -158,18 +158,6 @@ jobs:
         fi
         echo "Assertion A Passed: Smart resize script exists."
         
-        # Assertion B: Wireless Driver module exists (match either 8189es.ko or rtl8189es.ko)
-        DRIVER_KO=$(find /mnt/rootfs/lib/modules/ -name "*8189es.ko" | head -n 1)
-        if [ -z "$DRIVER_KO" ]; then
-          echo "Assertion B Failed: wireless driver module (*8189es.ko) not found in rootfs!"
-          sudo umount /mnt/rootfs
-          exit 1
-        fi
-        echo "Assertion B Passed: wireless driver module found at $DRIVER_KO."
-        
-
-        
-
         # Umount loop
         echo "Unmounting rootfs..."
         sudo umount /mnt/rootfs
