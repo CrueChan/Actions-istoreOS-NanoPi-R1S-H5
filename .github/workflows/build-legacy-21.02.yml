@@ -45,11 +45,84 @@ jobs:
     - name: Download and unpack Image Builder
       run: |
         VERSION="21.02.7"
-        IB_URL="https://downloads.immortalwrt.org/releases/${VERSION}/targets/${{ matrix.target }}/${{ matrix.subtarget }}/immortalwrt-imagebuilder-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}.Linux-x86_64.tar.xz"
-        echo "Downloading Image Builder from $IB_URL"
-        wget -q "$IB_URL" -O imagebuilder.tar.xz
+        TARGET=${{ matrix.target }}
+        SUBTARGET=${{ matrix.subtarget }}
+        BASE="https://downloads.immortalwrt.org/releases/${VERSION}/targets/${TARGET}/${SUBTARGET}"
+        
+        IB_NAME="immortalwrt-imagebuilder-${VERSION}-${TARGET}-${SUBTARGET}.Linux-x86_64"
+        echo "Downloading Image Builder..."
+        wget -q "${BASE}/${IB_NAME}.tar.xz" -O imagebuilder.tar.xz
         tar -xf imagebuilder.tar.xz
-        mv immortalwrt-imagebuilder-${VERSION}-${{ matrix.target }}-${{ matrix.subtarget }}.Linux-x86_64 imagebuilder
+        mv "${IB_NAME}" imagebuilder
+
+
+    - name: Extract kernel modules from matching .ipk packages
+      run: |
+        # The kmod packages in the 21.02 repo (kmod-cfg80211, kmod-mac80211) use a backported
+        # wireless stack (5.15.92) that IS compatible with kernel 5.4.255 but the modules must
+        # be loaded in the correct order. We extract the .ko files and inject them directly
+        # into the firmware files overlay, bypassing opkg version checks.
+        VERSION="21.02.7"
+        BASE="https://downloads.immortalwrt.org/releases/${VERSION}/targets/${{ matrix.target }}/${{ matrix.subtarget }}/packages"
+        ARCH="aarch64_cortex-a53"
+        
+        # Create the modules directory in the files overlay
+        # We need to find the exact kernel version string at build time
+        # The kernel in 21.02.7 sunxi is 5.4.255
+        KVER="5.4.255"
+        MODULES_DIR="imagebuilder/files/lib/modules/${KVER}"
+        mkdir -p "$MODULES_DIR"
+        MODULES_D="imagebuilder/files/etc/modules.d"
+        mkdir -p "$MODULES_D"
+        
+        extract_ko_from_ipk() {
+          local pkg="$1"
+          local url="${BASE}/${pkg}"
+          echo "Downloading: $url"
+          wget -q "$url" -O /tmp/pkg.ipk
+          # ipk is an ar archive containing data.tar.gz
+          cd /tmp && ar x pkg.ipk data.tar.gz 2>/dev/null || ar x pkg.ipk
+          tar -xzf /tmp/data.tar.gz -C /tmp/extracted/ 2>/dev/null || true
+          cd -
+        }
+        
+        mkdir -p /tmp/extracted
+        
+        # Download and extract cfg80211
+        CFG80211_PKG=$(wget -qO- "${BASE}/" | grep -o 'kmod-cfg80211[^"]*\.ipk' | head -1)
+        if [ -n "$CFG80211_PKG" ]; then
+          extract_ko_from_ipk "$CFG80211_PKG"
+        fi
+        
+        # Download and extract mac80211
+        MAC80211_PKG=$(wget -qO- "${BASE}/" | grep -o 'kmod-mac80211_[^"]*\.ipk' | head -1)
+        if [ -n "$MAC80211_PKG" ]; then
+          extract_ko_from_ipk "$MAC80211_PKG"
+        fi
+        
+        # Download and extract rtl8189es
+        RTL_PKG=$(wget -qO- "${BASE}/" | grep -o 'kmod-rtl8189es[^"]*\.ipk' | head -1)
+        if [ -n "$RTL_PKG" ]; then
+          extract_ko_from_ipk "$RTL_PKG"
+        fi
+        
+        # Copy extracted .ko files to the firmware overlay
+        find /tmp/extracted -name "*.ko" | while read ko; do
+          echo "Installing: $ko"
+          cp "$ko" "$MODULES_DIR/"
+        done
+        
+        echo "=== Installed kernel modules ==="
+        ls -la "$MODULES_DIR/"
+        
+        # Create explicit module load order entries
+        # cfg80211 must load before mac80211, mac80211 before rtl8189es
+        echo "cfg80211" > "${MODULES_D}/50-cfg80211"
+        echo "mac80211" > "${MODULES_D}/51-mac80211"
+        echo "rtl8189es" > "${MODULES_D}/52-rtl8189es"
+        echo "=== Module autoload order entries ==="
+        ls -la "$MODULES_D/"
+
 
     - name: Build firmware image
       run: |
