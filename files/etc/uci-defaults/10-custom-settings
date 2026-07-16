@@ -32,30 +32,53 @@ if [ -f /etc/config/upnpd ]; then
 fi
 
 # 5. Configure Wireless defaults depending on version
+# On 21.02 we regenerate the config using wifi detect to get the correct Kernel 5.4 device paths.
+# On 23.05 we use the pre-created config file to skip wifi detect and prevent early boot probing crash.
 if [ -f /etc/config/wireless ]; then
-    # Detect the version
-    if grep -q "21.02" /etc/openwrt_release 2>/dev/null || grep -q "21.02" /etc/os-release 2>/dev/null; then
-        # For legacy 21.02: Enable both wireless device and AP interface
-        uci set wireless.radio0.disabled='0'
-        uci set wireless.default_radio0.disabled='0'
+    # Detect legacy 21.02 (by release files or presence of hostapd)
+    if grep -q "21.02" /etc/openwrt_release 2>/dev/null || grep -q "21.02" /etc/os-release 2>/dev/null || [ -x /usr/sbin/hostapd ]; then
+        # Load the driver explicitly to make sure it is registered before detection
+        modprobe 8189es 2>/dev/null
+        modprobe rtl8189es 2>/dev/null
+        sleep 1
         
-        # Configure AP details
-        raw_mac=$(cat /sys/class/net/wlan0/address 2>/dev/null | tr -d ':' | tr 'a-z' 'A-Z')
-        wlan_mac=$(echo "$raw_mac" | tr -d ' \t\r\n')
-        if [ -n "$wlan_mac" ] && [ ${#wlan_mac} -ge 4 ]; then
-            mac_suffix=$(echo -n "$wlan_mac" | tail -c 4)
-        else
-            mac_suffix="21.02"
+        # Regenerate config for 21.02 to bind to kernel 5.4 paths
+        rm -f /etc/config/wireless
+        /sbin/wifi detect > /etc/config/wireless
+        
+        if [ -s /etc/config/wireless ]; then
+            uci set wireless.radio0.disabled='0'
+            
+            # Configure default AP if it was created, or add one if it doesn't exist
+            if ! uci get wireless.@wifi-iface[0] >/dev/null 2>&1; then
+                uci add wireless wifi-iface
+                uci rename wireless.@wifi-iface[-1]='default_radio0'
+                uci set wireless.default_radio0.device='radio0'
+                uci set wireless.default_radio0.network='lan'
+                uci set wireless.default_radio0.mode='ap'
+            fi
+            
+            uci set wireless.@wifi-iface[0].disabled='0'
+            
+            # Configure AP SSID dynamically
+            raw_mac=$(cat /sys/class/net/wlan0/address 2>/dev/null | tr -d ':' | tr 'a-z' 'A-Z')
+            wlan_mac=$(echo "$raw_mac" | tr -d ' \t\r\n')
+            if [ -n "$wlan_mac" ] && [ ${#wlan_mac} -ge 4 ]; then
+                mac_suffix=$(echo -n "$wlan_mac" | tail -c 4)
+            else
+                mac_suffix="21.02"
+            fi
+            uci set wireless.@wifi-iface[0].ssid="FriendlyWrt-$mac_suffix"
+            uci set wireless.@wifi-iface[0].encryption='psk2'
+            uci set wireless.@wifi-iface[0].key='password'
+            uci commit wireless
         fi
-        uci set wireless.default_radio0.ssid="FriendlyWrt-$mac_suffix"
-        uci set wireless.default_radio0.encryption='psk2'
-        uci set wireless.default_radio0.key='password'
     else
-        # For 23.05: Enable wireless device for client/scanning capabilities, but disable the AP interface to prevent panic
+        # For 23.05: Keep pre-created configuration to avoid crash, enable radio0 for scan/client, disable AP
         uci set wireless.radio0.disabled='0'
         uci set wireless.default_radio0.disabled='1'
+        uci commit wireless
     fi
-    uci commit wireless
 fi
 
 exit 0
