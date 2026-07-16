@@ -24,47 +24,6 @@ else
 fi
 
 
-# 4. Configure Wireless defaults (SSID, Password, and keep disabled by default on boot)
-# Note: /etc/config/wireless is pre-packaged in the image to prevent early boot crashes
-# caused by hardware probing during 'wifi detect' stage.
-if [ -f /etc/config/wireless ]; then
-    # Get the wireless interface MAC address from sysfs
-    raw_mac=$(cat /sys/class/net/wlan0/address 2>/dev/null | tr -d ':' | tr 'a-z' 'A-Z')
-    wlan_mac=$(echo "$raw_mac" | tr -d ' \t\r\n')
-    
-    if [ -n "$wlan_mac" ] && [ ${#wlan_mac} -ge 4 ]; then
-        mac_suffix=$(echo -n "$wlan_mac" | tail -c 4)
-    else
-        mac_suffix="H5"
-    fi
-    
-    ssid="FriendlyWrt-$mac_suffix"
-    
-    # Iterate and configure all wifi-iface sections to use our SSID and Password
-    idx=0
-    while true; do
-        sec_type=$(uci get wireless.@wifi-iface[$idx].device 2>/dev/null)
-        [ -z "$sec_type" ] && break
-        
-        uci set wireless.@wifi-iface[$idx].ssid="$ssid"
-        uci set wireless.@wifi-iface[$idx].encryption='psk2'
-        uci set wireless.@wifi-iface[$idx].key='password'
-        
-        idx=$((idx + 1))
-    done
-    
-    # Set conservative, safe 2.4GHz parameters for radio0
-    uci set wireless.radio0.hwmode='11g'
-    uci set wireless.radio0.channel='11'
-    uci set wireless.radio0.htmode='HT20'
-    uci set wireless.radio0.country='AU'
-    uci set wireless.radio0.txpower='15'
-    
-    # Explicitly keep the radio0 interface disabled by default on first boot
-    # This prevents kernel panic during early boot and guarantees 100% stable startup
-    uci set wireless.radio0.disabled='1'
-    
-    uci commit wireless
-fi
+
 
 exit 0
